@@ -1,22 +1,16 @@
-import { StyleSheet, Text, View } from 'react-native';
+// src/app/index.tsx
+import { Redirect } from 'expo-router';
 
-export default function HomeScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>💪 App de Treinos Inicializado!</Text>
-    </View>
-  );
+export default function IndexRoute() {
+  // Simulando o estado de autenticação. 
+  // false = deslogado (vai para o login) | true = logado (vai para as abas)
+  const isAuthenticated = false; 
+
+  if (!isAuthenticated) {
+    // Redireciona na marra para a tela de login dentro do grupo (auth)
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  // Se estivesse logado, mandaria para as abas
+  return <Redirect href="/(tabs)" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-});
