@@ -107,7 +107,7 @@ export default function ExerciseScreen() {
     <View style={styles.container}>
       {/* Botão de Voltar e Cabeçalho */}
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/routines')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <View style={styles.titleContainer}>
