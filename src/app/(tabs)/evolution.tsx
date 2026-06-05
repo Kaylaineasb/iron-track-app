@@ -3,7 +3,8 @@ import { StyleSheet, Text, View, FlatList, Alert } from 'react-native';
 import { theme } from '@/core/theme/theme';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
-import { storageService } from '@/core/services/storageService';
+import { storageService } from '@/services/storageService';
+
 
 interface Measurement {
   id: string;

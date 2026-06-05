@@ -5,7 +5,8 @@ import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
-import { storageService } from '@/core/services/storageService';
+import { ConfirmModal } from '@/core/components/ConfirmModal';
+import { storageService } from '@/services/storageService';
 
 interface WorkoutRoutine {
   id: string;
@@ -22,6 +23,9 @@ export default function RoutinesRoute() {
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [routineToDelete, setRoutineToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -48,19 +52,19 @@ export default function RoutinesRoute() {
     });
   };
 
-  const handleDeleteRoutine = (routineId: string, routineName: string) => {
-    Alert.alert('Deletar Rotina', `Tem certeza que deseja excluir o "${routineName}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Deletar',
-        style: 'destructive',
-        onPress: async () => {
-          const updatedList = routines.filter((routine) => routine.id !== routineId);
-          setRoutines(updatedList);
-          await storageService.saveRoutines(updatedList);
-        },
-      },
-    ]);
+  const handleDeleteRoutineTrigger = (routineId: string, routineName: string) => {
+    setRoutineToDelete({ id: routineId, name: routineName });
+    setIsDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (routineToDelete) {
+      const updatedList = routines.filter((routine) => routine.id !== routineToDelete.id);
+      setRoutines(updatedList);
+      await storageService.saveRoutines(updatedList);
+    }
+    setIsDeleteModalVisible(false);
+    setRoutineToDelete(null);
   };
 
   const handleAddRoutine = () => {
@@ -112,7 +116,7 @@ export default function RoutinesRoute() {
           <TouchableOpacity
             style={styles.routineCard}
             onPress={() => handleOpenRoutine(item.id, item.name)}
-            onLongPress={() => handleDeleteRoutine(item.id, item.name)}
+            onLongPress={() => handleDeleteRoutineTrigger(item.id, item.name)}
             delayLongPress={600}
             activeOpacity={0.7}
           >
@@ -144,6 +148,17 @@ export default function RoutinesRoute() {
           </View>
         </View>
       </Modal>
+      <ConfirmModal
+        visible={isDeleteModalVisible}
+        title="Deletar Rotina"
+        description={`Tem certeza que deseja excluir o "${routineToDelete?.name}"? Esta ação não pode ser desfeita.`}
+        confirmText="Deletar"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setIsDeleteModalVisible(false);
+          setRoutineToDelete(null);
+        }}
+      />
     </View>
   );
 }

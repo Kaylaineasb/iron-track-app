@@ -2,9 +2,12 @@ import { StyleSheet, Text, View, ScrollView, StatusBar, TouchableOpacity, Alert 
 import { useRouter } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { ConfirmModal } from '@/core/components/ConfirmModal';
+import { useState } from 'react';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
 
   const userSummary = {
     nextWorkout: 'Treino A',
@@ -14,22 +17,13 @@ export default function HomeScreen() {
     lastUpdate: '01/06/2026'
   };
 
+  const handleConfirmLogout = () => {
+    setIsLogoutModalVisible(false);
+    router.replace('/(auth)/login');
+  };
+
   const handleLogout = () => {
-    Alert.alert(
-      'Sair da Conta',
-      'Tem certeza que deseja encerrar sua sessão?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Sair', 
-          style: 'destructive',
-          onPress: () => {
-            console.log('Usuário deslogado.');
-            router.replace('/(auth)/login');
-          }
-        }
-      ]
-    );
+    setIsLogoutModalVisible(true);
   };
 
   return (
@@ -107,6 +101,14 @@ export default function HomeScreen() {
           "A constância supera a intensidade. Mantenha o registro das cargas e vença o seu eu de ontem."
         </Text>
       </View>
+      <ConfirmModal
+        visible={isLogoutModalVisible}
+        title="Sair da Conta"
+        description="Tem certeza que deseja encerrar sua sessão no IRON TRACK?"
+        confirmText="Sair"
+        onConfirm={handleConfirmLogout}
+        onCancel={() => setIsLogoutModalVisible(false)}
+      />
     </ScrollView>
   );
 }
