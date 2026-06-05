@@ -8,56 +8,52 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
+        tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
           borderTopWidth: 1,
           borderTopColor: theme.colors.surfaceLight,
-          paddingBottom: 6,
+          paddingBottom: 5,
           height: 60,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
         },
       }}
     >
+      {/* Aba da Home */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? "flash" : "flash-outline"}
-              size={size} 
-              color={color} 
-            />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />
+
+      {/* Aba de Rotinas (Listagem) */}
       <Tabs.Screen
         name="routines/index"
         options={{
           title: 'Treinos',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? "barbell" : "barbell-outline"}
-              size={size} 
-              color={color} 
-            />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="barbell-outline" size={size} color={color} />
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="routines/[id]/index"
+        options={{
+          href: null,
+        }}
+      />
+
+      {/* Aba de Evolução */}
       <Tabs.Screen
         name="evolution"
         options={{
           title: 'Evolução',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons 
-              name={focused ? "trending-up" : "trending-up-outline"}
-              size={size} 
-              color={color} 
-            />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="trending-up-outline" size={size} color={color} />
           ),
         }}
       />
