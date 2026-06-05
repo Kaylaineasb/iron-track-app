@@ -1,4 +1,3 @@
-// src/app/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,7 +28,7 @@ export default function TabsLayout() {
           title: 'Home',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
-              name={focused ? "flash" : "flash-outline"} // Ícone de raio (foco/energia)
+              name={focused ? "flash" : "flash-outline"}
               size={size} 
               color={color} 
             />
@@ -42,7 +41,7 @@ export default function TabsLayout() {
           title: 'Treinos',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
-              name={focused ? "barbell" : "barbell-outline"} // Ícone de haltere
+              name={focused ? "barbell" : "barbell-outline"}
               size={size} 
               color={color} 
             />
@@ -55,7 +54,7 @@ export default function TabsLayout() {
           title: 'Evolução',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons 
-              name={focused ? "trending-up" : "trending-up-outline"} // Ícone de gráfico de evolução
+              name={focused ? "trending-up" : "trending-up-outline"}
               size={size} 
               color={color} 
             />
