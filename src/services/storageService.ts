@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const KEYS = {
   ROUTINES: '@irontrack:routines',
   EVOLUTION: '@irontrack:evolution',
+  HISTORY: '@irontrack:workout_history',
 };
 
 export const storageService = {
@@ -49,4 +50,21 @@ export const storageService = {
       return null;
     }
   },
+
+  async saveWorkoutLog(workoutLogs: any[]): Promise<void> {
+    try {
+      await AsyncStorage.setItem(KEYS.HISTORY, JSON.stringify(workoutLogs));
+    } catch (error) {
+      console.error('Erro ao salvar histórico de treino:', error);
+    }
+  },
+
+  async getWorkoutLogs(): Promise<any[] | null> {
+    try {
+      const jsonValue = await AsyncStorage.getItem(KEYS.HISTORY);
+      return jsonValue != null ? JSON.parse(jsonValue) : null;
+    } catch (error) {
+      return null;
+    }
+  }
 };
