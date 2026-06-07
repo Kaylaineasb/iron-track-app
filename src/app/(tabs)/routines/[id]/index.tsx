@@ -1,3 +1,4 @@
+// src/app/(tabs)/routines/[id]/index.tsx
 import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -5,7 +6,7 @@ import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
-import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; // 🚀 IMPORTADO
+import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; 
 import { storageService } from '@/services/storageService';
 
 interface SetMeta {
@@ -191,6 +192,49 @@ export default function ExerciseScreen() {
     }, 400);
   };
 
+  // 🚀 NOVA FUNÇÃO: Lógica para disparar o Alerta e executar a deleção física
+  const handleDeleteExerciseTrigger = (exerciseId: string, exerciseName: string) => {
+    showAlert(
+      'Remover Exercício',
+      `Tem certeza que deseja excluir "${exerciseName}" desta ficha de treino?`,
+      'error',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Excluir', style: 'destructive', onPress: () => executeDeleteExercise(exerciseId) }
+      ]
+    );
+  };
+
+  const executeDeleteExercise = async (exerciseId: string) => {
+    // Filtra removendo o alvo da lista em memória
+    const updatedExercises = exercises.filter(ex => ex.id !== exerciseId);
+
+    // Lógica inteligente: se sobrou apenas um exercício no grupo conjugado, ele perde o groupId (não faz sentido conjugar sozinho)
+    const groupedCounts: { [key: string]: number } = {};
+    updatedExercises.forEach(ex => {
+      if (ex.groupId) groupedCounts[ex.groupId] = (groupedCounts[ex.groupId] || 0) + 1;
+    });
+
+    const finalExercises = updatedExercises.map(ex => {
+      if (ex.groupId && groupedCounts[ex.groupId] < 2) {
+        return { ...ex, groupId: undefined };
+      }
+      return ex;
+    });
+
+    // Salva no banco local
+    const savedRoutines = await storageService.getRoutines() || [];
+    const updatedRoutines = savedRoutines.map((routine: any) => {
+      if (routine.id === id) {
+        return { ...routine, exercises: finalExercises };
+      }
+      return routine;
+    });
+
+    await storageService.saveRoutines(updatedRoutines);
+    setExercises(finalExercises);
+  };
+
   const handleUpdateSetLog = (exerciseId: string, setId: string, field: 'doneReps' | 'doneWeight', value: string) => {
     setExercises((prevExercises) =>
       prevExercises.map((ex) => {
@@ -339,12 +383,24 @@ export default function ExerciseScreen() {
             return (
               <View style={dynamicCardStyle}>
                 <View style={styles.exerciseHeaderRow}>
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-                  {exercise.groupId && (
-                    <View style={styles.conjugadoTag}>
-                      <Text style={styles.conjugadoTagText}>CONJUGADO</Text>
-                    </View>
-                  )}
+                  {/* Nome e Tag do Exercício */}
+                  <View style={styles.exerciseTitleBlock}>
+                    <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    {exercise.groupId && (
+                      <View style={styles.conjugadoTag}>
+                        <Text style={styles.conjugadoTagText}>CONJUGADO</Text>
+                      </View>
+                    )}
+                  </View>
+                  
+                  {/* Botão de deleção no topo direito de cada Card */}
+                  <TouchableOpacity 
+                    onPress={() => handleDeleteExerciseTrigger(exercise.id, exercise.name)}
+                    activeOpacity={0.6}
+                    style={styles.deleteExerciseBtn}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={theme.colors.textMuted} />
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.columnHeaderRow}>
@@ -566,8 +622,12 @@ const styles = StyleSheet.create({
 
   listContainer: { paddingBottom: theme.spacing.xl },
   exerciseCard: { backgroundColor: theme.colors.surface, padding: theme.spacing.md, borderRadius: theme.borderRadius.lg, marginBottom: theme.spacing.md, borderWidth: 1, borderColor: theme.colors.surfaceLight },
-  exerciseName: { fontSize: 16, fontWeight: 'bold', color: theme.colors.text },
-  exerciseHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm },
+  exerciseName: { fontSize: 16, fontWeight: 'bold', color: theme.colors.text, flexShrink: 1 },
+  
+  exerciseHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm, gap: 12 },
+  exerciseTitleBlock: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' },
+  deleteExerciseBtn: { padding: 4, justifyContent: 'center', alignItems: 'center' },
+
   conjugadoTag: { backgroundColor: theme.colors.surfaceLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 0.5, borderColor: theme.colors.primary },
   conjugadoTagText: { fontSize: 10, fontWeight: 'bold', color: theme.colors.primary, letterSpacing: 0.5 },
   columnHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
