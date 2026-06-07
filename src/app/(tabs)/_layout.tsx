@@ -57,6 +57,17 @@ export default function TabsLayout() {
           ),
         }}
       />
+
+      {/* Histórico de Treinos */}
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'Histórico',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
