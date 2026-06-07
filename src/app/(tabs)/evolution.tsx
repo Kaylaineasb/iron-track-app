@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, SectionList, Alert, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, SectionList, TouchableOpacity } from 'react-native';
 import { theme } from '@/core/theme/theme';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
+import { CustomAlert, CustomAlertType } from '@/core/components/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { storageService } from '@/services/storageService';
 
@@ -35,6 +36,10 @@ export default function EvolutionRoute() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<Measurement[]>([]);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<CustomAlertType>('info');
 
   const [weight, setWeight] = useState('');
   const [height, setHeight] = useState('');
@@ -108,9 +113,16 @@ export default function EvolutionRoute() {
     return Object.keys(groups).map((key) => ({ title: key, data: groups[key] }));
   };
 
+  const showAlert = (title: string, message: string, type: CustomAlertType) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertVisible(true);
+  };
+
   const handleSaveMeasurement = () => {
     if (!weight || !height) {
-      Alert.alert('Atenção', 'Peso e Altura são obrigatórios.');
+      showAlert('Atenção', 'Peso e Altura são obrigatórios.', 'error');
       return;
     }
 
@@ -148,7 +160,8 @@ export default function EvolutionRoute() {
       
       setIsLoading(false);
       setIsExpanded(false);
-      Alert.alert('Sucesso', 'Métricas corporais salvas com sucesso!');
+
+      showAlert('Sucesso', 'Métricas corporais salvas com sucesso!', 'success');
     }, 600);
   };
 
@@ -268,6 +281,14 @@ export default function EvolutionRoute() {
             </View>
           </View>
         )}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        type={alertType}
+        onClose={() => setAlertVisible(false)}
       />
     </View>
   );

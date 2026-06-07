@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, Modal, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
+import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; // 🚀 IMPORTADO
 import { storageService } from '@/services/storageService';
 
 interface SetMeta {
@@ -46,6 +47,12 @@ export default function ExerciseScreen() {
   ]);
   const [isSavingExercise, setIsSavingExercise] = useState(false);
 
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<CustomAlertType>('info');
+  const [alertButtons, setAlertButtons] = useState<AlertButton[]>([]);
+
   useEffect(() => {
     async function fetchExercises() {
       const savedRoutines = await storageService.getRoutines();
@@ -71,7 +78,8 @@ export default function ExerciseScreen() {
     } else if (secondsLeft === 0 && isTimerRunning) {
       setIsTimerRunning(false);
       if (timerRef.current) clearInterval(timerRef.current);
-      Alert.alert('Descanso Acadêmico', 'Hora de esmagar a próxima série! 💪');
+      
+      showAlert('Descanso Acadêmico', 'Hora de esmagar a próxima série! 💪', 'success');
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isTimerRunning, secondsLeft]);
@@ -88,8 +96,20 @@ export default function ExerciseScreen() {
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
+  const showAlert = (
+    title: string, 
+    message: string, 
+    type: CustomAlertType, 
+    buttons?: AlertButton[]
+  ) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertButtons(buttons || []);
+    setAlertVisible(true);
+  };
+
   const addSetInModal = () => {
-    const lastSet = modalSets[modalSets.length - 1];
     setModalSets([...modalSets, { targetReps: '' }]);
   };
 
@@ -121,7 +141,7 @@ export default function ExerciseScreen() {
 
   const handleAddExerciseToFicha = () => {
     if (!newExerciseName.trim()) {
-      Alert.alert('Erro', 'Por favor, digite o nome do exercício.');
+      showAlert('Erro', 'Por favor, digite o nome do exercício.', 'warning');
       return;
     }
 
@@ -238,13 +258,19 @@ export default function ExerciseScreen() {
     const existingLogs = await storageService.getWorkoutLogs() || [];
     await storageService.saveWorkoutLog([workoutLog, ...existingLogs]);
     setIsFinishing(false);
-    Alert.alert('Treino Concluído!', 'O registro de hoje foi salvo no seu histórico.', [
-      { text: 'Boa!', onPress: () => router.push('/(tabs)/routines') }
-    ]);
+
+    showAlert(
+      'Treino Concluído!', 
+      'O registro de hoje foi salvo no seu histórico.', 
+      'success',
+      [{ text: 'Boa!', onPress: () => router.push('/(tabs)/routines') }]
+    );
   };
 
   const renderTimeDigits = () => {
-    return secondsLeft > 0 ? `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}` : '00:00';
+    return secondsLeft > 0 
+      ? `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}` 
+      : '00:00';
   };
 
   return (
@@ -380,7 +406,6 @@ export default function ExerciseScreen() {
             style={styles.keyboardViewCentered}
           >
             <View style={styles.modalContentCenter}>
-              {/* Cabeçalho Fixo */}
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Novo Exercício na Ficha</Text>
                 <TouchableOpacity onPress={() => setIsAddModalVisible(false)}>
@@ -388,7 +413,6 @@ export default function ExerciseScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Formulário */}
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.modalScrollContainer}
@@ -402,9 +426,16 @@ export default function ExerciseScreen() {
                 />
 
                 {/* DROPDOWN MULTIPLO */}
-                {exercises.length > 0 && (
-                  <View style={styles.dropdownContainer}>
-                    <Text style={styles.dropdownLabel}>Conjugar exercício? (Selecione um ou mais se for Tri-Set)</Text>
+                <View style={styles.dropdownContainer}>
+                  <Text style={styles.dropdownLabel}>Conjugar exercício? (Selecione um ou mais se for Tri-Set)</Text>
+                  {exercises.length === 0 ? (
+                    <View style={styles.dropdownEmptyState}>
+                      <Ionicons name="information-circle-outline" size={14} color={theme.colors.textMuted} />
+                      <Text style={styles.dropdownEmptyStateText}>
+                        Este é o primeiro exercício do treino. Os próximos poderão ser conjugados aqui!
+                      </Text>
+                    </View>
+                  ) : (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dropdownScroll}>
                       <TouchableOpacity
                         style={[styles.dropdownItem, selectedParentIds.length === 0 && styles.dropdownItemActive]}
@@ -433,8 +464,8 @@ export default function ExerciseScreen() {
                         );
                       })}
                     </ScrollView>
-                  </View>
-                )}
+                  )}
+                </View>
 
                 {/* Sub-cabeçalho das séries */}
                 <View style={styles.modalSetsSectionHeader}>
@@ -473,7 +504,6 @@ export default function ExerciseScreen() {
                 </View>
               </ScrollView>
 
-              {/* Botão de Ação */}
               <Button
                 title="Adicionar à Lista"
                 isLoading={isSavingExercise}
@@ -502,6 +532,15 @@ export default function ExerciseScreen() {
           </View>
         </View>
       </Modal>
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        type={alertType}
+        buttons={alertButtons}
+        onClose={() => setAlertVisible(false)}
+      />
     </View>
   );
 }
@@ -526,7 +565,7 @@ const styles = StyleSheet.create({
   timerQuickBtnText: { color: theme.colors.text, fontSize: 11, fontWeight: '600' },
 
   listContainer: { paddingBottom: theme.spacing.xl },
-  exerciseCard: { backgroundColor: theme.colors.surface, padding: theme.spacing.md, borderRadius: theme.borderRadius.md, marginBottom: theme.spacing.md, borderWidth: 1, borderColor: theme.colors.surfaceLight },
+  exerciseCard: { backgroundColor: theme.colors.surface, padding: theme.spacing.md, borderRadius: theme.borderRadius.lg, marginBottom: theme.spacing.md, borderWidth: 1, borderColor: theme.colors.surfaceLight },
   exerciseName: { fontSize: 16, fontWeight: 'bold', color: theme.colors.text },
   exerciseHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm },
   conjugadoTag: { backgroundColor: theme.colors.surfaceLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 0.5, borderColor: theme.colors.primary },
@@ -552,8 +591,8 @@ const styles = StyleSheet.create({
   modalSkipBtn: { width: '100%' },
 
   modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: theme.spacing.lg },
-  keyboardViewCentered: { width: '100%', justifyContent: 'center', alignItems: 'center',},
-  modalContentCenter: { backgroundColor: theme.colors.surface, width: '100%', borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg, maxHeight: '85%', borderWidth: 1, borderColor: theme.colors.surfaceLight, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5,},
+  keyboardViewCentered: { width: '100%', justifyContent: 'center', alignItems: 'center', },
+  modalContentCenter: { backgroundColor: theme.colors.surface, width: '100%', borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg, maxHeight: '85%', borderWidth: 1, borderColor: theme.colors.surfaceLight, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.md },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
 
@@ -566,6 +605,9 @@ const styles = StyleSheet.create({
   dropdownItemTextActive: { color: theme.colors.primary, fontWeight: 'bold' },
   checkboxLabelRow: { flexDirection: 'row', alignItems: 'center' },
 
+  dropdownEmptyState: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.colors.surfaceLight, padding: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)' },
+  dropdownEmptyStateText: { fontSize: 11, color: theme.colors.textMuted, flex: 1, lineHeight: 15 },
+
   modalSetsSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: theme.spacing.md, marginBottom: theme.spacing.sm },
   modalSetsSectionTitle: { fontSize: 13, fontWeight: '700', color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
   addSetButton: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: theme.colors.surfaceLight, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 4 },
@@ -575,7 +617,7 @@ const styles = StyleSheet.create({
   modalColumnTitleNumber: { fontSize: 12, fontWeight: '600', color: theme.colors.textMuted, width: 25, textAlign: 'center' },
   modalColumnTitleLabel: { fontSize: 12, fontWeight: '600', color: theme.colors.textMuted, paddingLeft: 2 },
 
-  modalSetsScrollView: { maxHeight: 180, marginBottom: theme.spacing.md},
+  modalSetsScrollView: { maxHeight: 180, marginBottom: theme.spacing.md },
   modalSetsContainer: { width: '100%' },
   modalSetRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: theme.spacing.sm },
   modalSetNumberLabel: { fontSize: 13, fontWeight: 'bold', color: theme.colors.primary, width: 25, textAlign: 'center' },

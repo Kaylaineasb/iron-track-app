@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
-import { ConfirmModal } from '@/core/components/ConfirmModal';
+import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; // 🚀 IMPORTADO
 import { storageService } from '@/services/storageService';
 
 interface WorkoutRoutine {
@@ -24,7 +24,12 @@ export default function RoutinesRoute() {
   const [newDescription, setNewDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<CustomAlertType>('info');
+  const [alertButtons, setAlertButtons] = useState<AlertButton[]>([]);
+
   const [routineToDelete, setRoutineToDelete] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
@@ -52,24 +57,43 @@ export default function RoutinesRoute() {
     });
   };
 
-  const handleDeleteRoutineTrigger = (routineId: string, routineName: string) => {
-    setRoutineToDelete({ id: routineId, name: routineName });
-    setIsDeleteModalVisible(true);
+  const showAlert = (
+    title: string, 
+    message: string, 
+    type: CustomAlertType, 
+    buttons?: AlertButton[]
+  ) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertButtons(buttons || []);
+    setAlertVisible(true);
   };
 
-  const handleConfirmDelete = async () => {
-    if (routineToDelete) {
-      const updatedList = routines.filter((routine) => routine.id !== routineToDelete.id);
-      setRoutines(updatedList);
-      await storageService.saveRoutines(updatedList);
-    }
-    setIsDeleteModalVisible(false);
+  const handleDeleteRoutineTrigger = (routineId: string, routineName: string) => {
+    setRoutineToDelete({ id: routineId, name: routineName });
+    
+    showAlert(
+      'Deletar Rotina',
+      `Tem certeza que deseja excluir o "${routineName}"? Esta ação não pode ser desfeita.`,
+      'error',
+      [
+        { text: 'Cancelar', style: 'cancel', onPress: () => setRoutineToDelete(null) },
+        { text: 'Deletar', style: 'destructive', onPress: () => handleConfirmDelete(routineId) }
+      ]
+    );
+  };
+
+  const handleConfirmDelete = async (targetId: string) => {
+    const updatedList = routines.filter((routine) => routine.id !== targetId);
+    setRoutines(updatedList);
+    await storageService.saveRoutines(updatedList);
     setRoutineToDelete(null);
   };
 
   const handleAddRoutine = () => {
     if (!newName.trim() || !newDescription.trim()) {
-      Alert.alert('Erro', 'Por favor, preencha o nome e os grupos musculares.');
+      showAlert('Erro', 'Por favor, preencha o nome e os grupos musculares.', 'warning');
       return;
     }
 
@@ -133,6 +157,7 @@ export default function RoutinesRoute() {
         )}
       />
 
+      {/* Modal de Criação de Rotina */}
       <Modal visible={isModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -148,16 +173,14 @@ export default function RoutinesRoute() {
           </View>
         </View>
       </Modal>
-      <ConfirmModal
-        visible={isDeleteModalVisible}
-        title="Deletar Rotina"
-        description={`Tem certeza que deseja excluir o "${routineToDelete?.name}"? Esta ação não pode ser desfeita.`}
-        confirmText="Deletar"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          setIsDeleteModalVisible(false);
-          setRoutineToDelete(null);
-        }}
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        type={alertType}
+        buttons={alertButtons}
+        onClose={() => setAlertVisible(false)}
       />
     </View>
   );

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, SectionList, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, SectionList, TouchableOpacity } from 'react-native';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { storageService } from '@/services/storageService';
 import { useIsFocused } from '@react-navigation/native';
+import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; // 🚀 IMPORTADO
 
 interface LogSet {
   setNumber: number;
@@ -33,6 +34,12 @@ export default function HistoryScreen() {
   const [sections, setSections] = useState<SectionData[]>([]);
   const [isExpandedLogId, setIsExpandedLogId] = useState<string | null>(null);
   const isFocused = useIsFocused();
+
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<CustomAlertType>('info');
+  const [alertButtons, setAlertButtons] = useState<AlertButton[]>([]);
 
   useEffect(() => {
     if (isFocused) {
@@ -80,21 +87,24 @@ export default function HistoryScreen() {
   };
 
   const handleClearHistory = () => {
-    Alert.alert(
-      'Limpar Histórico',
-      'Deseja apagar todos os registros de treinos realizados? Essa ação não pode ser desfeita.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Apagar Tudo',
-          style: 'destructive',
-          onPress: async () => {
-            await storageService.saveWorkoutLog([]);
-            setSections([]);
-          }
+    setAlertTitle('Limpar Histórico');
+    setAlertMessage('Deseja apagar todos os registros de treinos realizados? Essa ação não pode ser desfeita.');
+    setAlertType('error');
+    setAlertButtons([
+      { 
+        text: 'Cancelar', 
+        style: 'cancel' 
+      },
+      {
+        text: 'Apagar Tudo',
+        style: 'destructive',
+        onPress: async () => {
+          await storageService.saveWorkoutLog([]);
+          setSections([]);
         }
-      ]
-    );
+      }
+    ]);
+    setAlertVisible(true);
   };
 
   return (
@@ -173,6 +183,15 @@ export default function HistoryScreen() {
             </View>
           );
         }}
+      />
+
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        type={alertType}
+        buttons={alertButtons}
+        onClose={() => setAlertVisible(false)}
       />
     </View>
   );
