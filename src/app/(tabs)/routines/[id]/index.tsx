@@ -1,4 +1,3 @@
-// src/app/(tabs)/routines/[id]/index.tsx
 import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -8,6 +7,7 @@ import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; 
 import { storageService } from '@/services/storageService';
+import { ExerciseSelect } from '@/core/components/ExerciseSelect';
 
 interface SetMeta {
   id: string;
@@ -474,9 +474,7 @@ export default function ExerciseScreen() {
                 contentContainerStyle={styles.modalScrollContainer}
                 keyboardShouldPersistTaps="handled"
               >
-                <Input
-                  label="Nome do Aparelho / Exercício"
-                  placeholder="Ex: Crossover"
+                <ExerciseSelect
                   value={newExerciseName}
                   onChangeText={setNewExerciseName}
                 />
