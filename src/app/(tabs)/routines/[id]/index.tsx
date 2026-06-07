@@ -90,7 +90,7 @@ export default function ExerciseScreen() {
 
   const addSetInModal = () => {
     const lastSet = modalSets[modalSets.length - 1];
-    setModalSets([...modalSets, { targetReps: lastSet?.targetReps || '10' }]);
+    setModalSets([...modalSets, { targetReps: '' }]);
   };
 
   const removeSetInModal = (index: number) => {
