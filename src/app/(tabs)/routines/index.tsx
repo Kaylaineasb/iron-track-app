@@ -5,24 +5,21 @@ import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
-import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; // 🚀 IMPORTADO
-import { storageService } from '@/services/storageService';
-
-interface WorkoutRoutine {
-  id: string;
-  name: string;
-  description: string;
-  exercisesCount: number;
-}
+import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert';
+import { workoutService, WorkoutRoutine } from '@/services/workoutService';
+import { useIsFocused } from '@react-navigation/native';
 
 export default function RoutinesRoute() {
   const router = useRouter();
+  const isFocused = useIsFocused();
 
   const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newDescription, setNewDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const [editingRoutineId, setEditingRoutineId] = useState<number | null>(null);
+  const [nameInput, setNameInput] = useState('');
+  const [descriptionInput, setDescriptionInput] = useState('');
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
@@ -30,39 +27,22 @@ export default function RoutinesRoute() {
   const [alertType, setAlertType] = useState<CustomAlertType>('info');
   const [alertButtons, setAlertButtons] = useState<AlertButton[]>([]);
 
-  const [routineToDelete, setRoutineToDelete] = useState<{ id: string; name: string } | null>(null);
-
   useEffect(() => {
-    async function loadData() {
-      const savedRoutines = await storageService.getRoutines();
-      if (savedRoutines) {
-        setRoutines(savedRoutines);
-      } else {
-        const defaultRoutines = [
-          { id: '1', name: 'Treino A', description: 'Peito, Tríceps e Ombro', exercisesCount: 3 },
-          { id: '2', name: 'Treino B', description: 'Costas, Bíceps e Antebraço', exercisesCount: 3 },
-          { id: '3', name: 'Treino C', description: 'Pernas Completas e Abdômen', exercisesCount: 3 },
-        ];
-        setRoutines(defaultRoutines);
-        await storageService.saveRoutines(defaultRoutines);
-      }
+    if (isFocused) {
+      loadRoutines();
     }
-    loadData();
-  }, []);
+  }, [isFocused]);
 
-  const handleOpenRoutine = (routineId: string, routineName: string) => {
-    router.push({
-      pathname: `/(tabs)/routines/${routineId}`,
-      params: { name: routineName }
-    });
+  const loadRoutines = async () => {
+    try {
+      const data = await workoutService.getAll();
+      setRoutines(data);
+    } catch (error) {
+      showAlert('Erro', 'Não foi possível carregar as suas rotinas do servidor Go.', 'error');
+    }
   };
 
-  const showAlert = (
-    title: string, 
-    message: string, 
-    type: CustomAlertType, 
-    buttons?: AlertButton[]
-  ) => {
+  const showAlert = (title: string, message: string, type: CustomAlertType, buttons?: AlertButton[]) => {
     setAlertTitle(title);
     setAlertMessage(message);
     setAlertType(type);
@@ -70,52 +50,95 @@ export default function RoutinesRoute() {
     setAlertVisible(true);
   };
 
-  const handleDeleteRoutineTrigger = (routineId: string, routineName: string) => {
-    setRoutineToDelete({ id: routineId, name: routineName });
-    
+  const handleOpenRoutine = (routineId: number, routineName: string) => {
+    router.push({
+      pathname: `/(tabs)/routines/${routineId}`,
+      params: { name: routineName }
+    });
+  };
+
+  const handleRoutineLongPress = (routine: WorkoutRoutine) => {
+    if (!routine.treNrId) return;
+
     showAlert(
-      'Deletar Rotina',
-      `Tem certeza que deseja excluir o "${routineName}"? Esta ação não pode ser desfeita.`,
-      'error',
+      'Opções da Rotina',
+      `O que você deseja fazer com o "${routine.treTxNome}"?`,
+      'info',
       [
-        { text: 'Cancelar', style: 'cancel', onPress: () => setRoutineToDelete(null) },
-        { text: 'Deletar', style: 'destructive', onPress: () => handleConfirmDelete(routineId) }
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Editar', 
+          onPress: () => handleOpenEditModal(routine) 
+        },
+        { 
+          text: 'Deletar', 
+          style: 'destructive', 
+          onPress: () => handleDeleteTrigger(routine.treNrId!, routine.treTxNome) 
+        }
       ]
     );
   };
 
-  const handleConfirmDelete = async (targetId: string) => {
-    const updatedList = routines.filter((routine) => routine.id !== targetId);
-    setRoutines(updatedList);
-    await storageService.saveRoutines(updatedList);
-    setRoutineToDelete(null);
+  const handleOpenEditModal = (routine: WorkoutRoutine) => {
+    setEditingRoutineId(routine.treNrId || null);
+    setNameInput(routine.treTxNome);
+    setDescriptionInput(routine.treTxDescricao || '');
+    setIsModalVisible(true);
   };
 
-  const handleAddRoutine = () => {
-    if (!newName.trim() || !newDescription.trim()) {
-      showAlert('Erro', 'Por favor, preencha o nome e os grupos musculares.', 'warning');
+  const handleOpenCreateModal = () => {
+    setEditingRoutineId(null);
+    setNameInput('');
+    setDescriptionInput('');
+    setIsModalVisible(true);
+  };
+
+  const handleDeleteTrigger = (id: number, name: string) => {
+    showAlert(
+      'Deletar Rotina',
+      `Tem certeza que deseja excluir o "${name}"? Todas as fichas ligadas a ele serão apagadas.`,
+      'error',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Deletar', style: 'destructive', onPress: () => handleConfirmDelete(id) }
+      ]
+    );
+  };
+
+  const handleConfirmDelete = async (id: number) => {
+    try {
+      await workoutService.delete(id);
+      loadRoutines();
+    } catch (error) {
+      showAlert('Erro ao Deletar', 'Não foi possível excluir o treino no servidor.', 'error');
+    }
+  };
+
+  const handleSaveRoutine = async () => {
+    if (!nameInput.trim() || !descriptionInput.trim()) {
+      showAlert('Campos Vazios', 'Por favor, preencha o nome e a descrição do treino.', 'warning');
       return;
     }
 
     setIsLoading(true);
 
-    setTimeout(async () => {
-      const newRoutine: WorkoutRoutine = {
-        id: Math.random().toString(),
-        name: newName.trim(),
-        description: newDescription.trim(),
-        exercisesCount: 0,
-      };
+    try {
+      if (editingRoutineId) {
+        await workoutService.update(editingRoutineId, nameInput, descriptionInput);
+      } else {
+        await workoutService.create(nameInput, descriptionInput);
+      }
 
-      const updatedList = [...routines, newRoutine];
-      setRoutines(updatedList);
-      await storageService.saveRoutines(updatedList);
-
-      setNewName('');
-      setNewDescription('');
-      setIsLoading(false);
+      await loadRoutines();
       setIsModalVisible(false);
-    }, 600);
+      setNameInput('');
+      setDescriptionInput('');
+      setEditingRoutineId(null);
+    } catch (error) {
+      showAlert('Erro de Conexão', 'Falha ao salvar as modificações da rotina.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -123,33 +146,34 @@ export default function RoutinesRoute() {
       <View style={styles.headerRow}>
         <View style={styles.headerTextContainer}>
           <Text style={styles.screenTitle}>📋 Suas Rotinas</Text>
-          <Text style={styles.subtitle}>Toque para abrir. Segure para deletar.</Text>
+          <Text style={styles.subtitle}>Toque para abrir. Segure para opções.</Text>
         </View>
-        <TouchableOpacity style={styles.addButton} onPress={() => setIsModalVisible(true)} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.addButton} onPress={handleOpenCreateModal} activeOpacity={0.7}>
           <Ionicons name="add" size={24} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
 
       <FlatList
         data={routines}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.treNrId)}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma rotina cadastrada.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma rotina cadastrada no banco Go.</Text>}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.routineCard}
-            onPress={() => handleOpenRoutine(item.id, item.name)}
-            onLongPress={() => handleDeleteRoutineTrigger(item.id, item.name)}
-            delayLongPress={600}
+            onPress={() => handleOpenRoutine(item.treNrId!, item.treTxNome)}
+            onLongPress={() => handleRoutineLongPress(item)}
+            delayLongPress={500}
             activeOpacity={0.7}
           >
             <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardDescription}>{item.description}</Text>
+              <Text style={styles.cardTitle}>{item.treTxNome}</Text>
+              <Text style={styles.cardDescription}>{item.treTxDescricao || 'Sem foco definido'}</Text>
+              
               <View style={styles.badgeContainer}>
                 <Ionicons name="fitness-outline" size={14} color={theme.colors.textSecondary} />
-                <Text style={styles.badgeText}>{item.exercisesCount} Exercícios</Text>
+                <Text style={styles.badgeText}>Ficha Ativa</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color={theme.colors.primary} />
@@ -157,19 +181,37 @@ export default function RoutinesRoute() {
         )}
       />
 
-      {/* Modal de Criação de Rotina */}
+      {/* Modal  de Criação / Edição */}
       <Modal visible={isModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Novo Bloco de Treino</Text>
+              <Text style={styles.modalTitle}>{editingRoutineId ? 'Editar Bloco de Treino' : 'Novo Bloco de Treino'}</Text>
               <TouchableOpacity onPress={() => setIsModalVisible(false)}>
                 <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <Input label="Nome do Bloco" placeholder="Ex: Treino D" value={newName} onChangeText={setNewName} />
-            <Input label="Grupos Musculares / Descrição" placeholder="Ex: Deltoides" value={newDescription} onChangeText={setNewDescription} />
-            <Button title="Criar Rotina" isLoading={isLoading} onPress={handleAddRoutine} style={styles.modalButton} />
+            
+            <Input 
+              label="Nome do Bloco" 
+              placeholder="Ex: Treino A" 
+              value={nameInput} 
+              onChangeText={setNameInput} 
+            />
+            
+            <Input 
+              label="Grupos Musculares / Descrição" 
+              placeholder="Ex: Peito, Tríceps e Ombro" 
+              value={descriptionInput} 
+              onChangeText={setDescriptionInput} 
+            />
+            
+            <Button 
+              title={editingRoutineId ? "Salvar Alterações" : "Criar Rotina"} 
+              isLoading={isLoading} 
+              onPress={handleSaveRoutine} 
+              style={styles.modalButton} 
+            />
           </View>
         </View>
       </Modal>
