@@ -1,10 +1,11 @@
-// src/app/(auth)/register.tsx
 import { useState } from 'react';
 import { StyleSheet, Text, View, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
+import { CustomAlert, CustomAlertType } from '@/core/components/CustomAlert';
+import { authService } from '@/services/authService';
 
 export default function RegisterRoute() {
   const router = useRouter();
@@ -13,14 +14,47 @@ export default function RegisterRoute() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleRegister = () => {
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertType, setAlertType] = useState<CustomAlertType>('info');
+
+  const showAlert = (title: string, message: string, type: CustomAlertType) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertVisible(true);
+  };
+
+  const handleRegister = async () => {
+    if (!name.trim() || !email.trim() || !password) {
+      showAlert('Campos Vazios', 'Por favor, preencha todos os campos para efetuar o cadastro.', 'warning');
+      return;
+    }
+    if (password.length < 6) {
+      showAlert('Senha Fraca', 'A sua senha precisa ter pelo menos 6 caracteres.', 'warning');
+      return;
+    }
+
     setIsLoading(true);
-    
-    setTimeout(() => {
+
+    try {
+      await authService.register(name, email, password);
+      await authService.login(email, password);
+
       setIsLoading(false);
-      // Cadastro feito, joga para a Home logada
       router.replace('/(tabs)');
-    }, 1500);
+    } catch (error: any) {
+      setIsLoading(false);
+
+      let errorMessage = 'Não foi possível completar o cadastro. Verifique os dados ou a conexão.';
+
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMessage = error.response.data.error;
+      }
+
+      showAlert('Erro no Cadastro', errorMessage, 'error');
+    }
   };
 
   return (
@@ -76,50 +110,25 @@ export default function RegisterRoute() {
           </Text>
         </View>
       </ScrollView>
+      <CustomAlert
+        visible={alertVisible}
+        title={alertTitle}
+        message={alertMessage}
+        type={alertType}
+        onClose={() => setAlertVisible(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: theme.spacing.lg,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: theme.spacing.xl,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: theme.colors.text,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginTop: theme.spacing.xs,
-  },
-  form: {
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-  },
-  button: {
-    marginTop: theme.spacing.sm,
-  },
-  linkText: {
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginTop: theme.spacing.lg,
-    fontSize: 14,
-  },
-  linkHighlight: {
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  scrollContainer: { flexGrow: 1, justifyContent: 'center', padding: theme.spacing.lg },
+  header: { alignItems: 'center', marginBottom: theme.spacing.xl },
+  title: { fontSize: 28, fontWeight: 'bold', color: theme.colors.text },
+  subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginTop: theme.spacing.xs },
+  form: { width: '100%', maxWidth: 400, alignSelf: 'center' },
+  button: { marginTop: theme.spacing.sm },
+  linkText: { color: theme.colors.textSecondary, textAlign: 'center', marginTop: theme.spacing.lg, fontSize: 14 },
+  linkHighlight: { color: theme.colors.primary, fontWeight: '600' },
 });

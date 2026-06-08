@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert';
 import { storageService } from '@/services/storageService';
 import { useIsFocused } from '@react-navigation/native';
+import * as SecureStore from 'expo-secure-store';
 
 interface DisplaySummary {
   nextWorkout: string;
@@ -18,6 +19,7 @@ interface DisplaySummary {
 export default function HomeScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
+  const [userName, setUserName] = useState('Atleta');
 
   const [summary, setSummary] = useState<DisplaySummary>({
     nextWorkout: 'Nenhum Treino',
@@ -40,6 +42,11 @@ export default function HomeScreen() {
   }, [isFocused]);
 
   const loadHomeData = async () => {
+    const savedName = await SecureStore.getItemAsync('user_name');
+    if (savedName) {
+      const firstName = savedName.trim().split(' ')[0];
+      setUserName(firstName);
+    }
     const [savedRoutines, workoutLogs, evolutionLogs] = await Promise.all([
       storageService.getRoutines(),
       storageService.getWorkoutLogs(),
@@ -118,7 +125,7 @@ export default function HomeScreen() {
       
       <View style={styles.headerRow}>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.welcomeText}>Fala, Kay! 👋</Text>
+          <Text style={styles.welcomeText}>Fala, {userName}! 👋</Text>
           <Text style={styles.subtitleText}>Pronta para colocar mais carga hoje?</Text>
         </View>
         <TouchableOpacity 
