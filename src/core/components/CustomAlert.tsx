@@ -80,8 +80,12 @@ export function CustomAlert({
                   style={btnStyle}
                   activeOpacity={0.7}
                   onPress={() => {
-                    if (btn.onPress) btn.onPress();
-                    onClose(); // Sempre fecha o modal após o clique
+                    onClose(); 
+                    if (btn.onPress) {
+                      setTimeout(() => {
+                        btn.onPress?.();
+                      }, 100);
+                    }
                   }}
                 >
                   <Text style={btnTextStyle}>{btn.text}</Text>

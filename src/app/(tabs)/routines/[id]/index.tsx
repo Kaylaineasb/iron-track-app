@@ -8,6 +8,8 @@ import { Button } from '@/core/components/Button';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; 
 import { storageService } from '@/services/storageService';
 import { ExerciseSelect } from '@/core/components/ExerciseSelect';
+import { fichaService, FichaTreinoResponse, FichaTreinoPayload } from '@/services/fichaService';
+import { CustomExerciseModal } from '@/core/components/CustomExerciseModal';
 
 interface SetMeta {
   id: string;
@@ -20,9 +22,11 @@ interface SetMeta {
 
 interface Exercise {
   id: string;
+  exeNrId: number;
   name: string;
   sets: SetMeta[];
   groupId?: string;
+  fitNrOrdem: number;
 }
 
 interface ModalSetInput {
@@ -32,6 +36,10 @@ interface ModalSetInput {
 export default function ExerciseScreen() {
   const router = useRouter();
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
+  
+  const treNrIdNumeric = Number(id);
+  const [metaPesoInput, setMetaPesoInput] = useState('0');
+
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isFinishing, setIsFinishing] = useState(false);
 
@@ -41,6 +49,7 @@ export default function ExerciseScreen() {
 
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
+  const [selectedExerciseId, setSelectedExerciseId] = useState<number>(0);
   const [selectedParentIds, setSelectedParentIds] = useState<string[]>([]);
 
   const [modalSets, setModalSets] = useState<ModalSetInput[]>([
@@ -54,24 +63,43 @@ export default function ExerciseScreen() {
   const [alertType, setAlertType] = useState<CustomAlertType>('info');
   const [alertButtons, setAlertButtons] = useState<AlertButton[]>([]);
 
+  const [isCustomModalVisible, setIsCustomModalVisible] = useState(false);
+
   useEffect(() => {
-    async function fetchExercises() {
-      const savedRoutines = await storageService.getRoutines();
-
-      if (savedRoutines) {
-        const currentRoutine = savedRoutines.find((r: any) => r.id === id);
-        if (currentRoutine && currentRoutine.exercises) {
-          setExercises(currentRoutine.exercises);
-        } else {
-          setExercises([]);
-        }
-      } else {
-        setExercises([]);
-      }
+    if (treNrIdNumeric) {
+      loadFichas();
     }
+  }, [treNrIdNumeric]);
 
-    fetchExercises();
-  }, [id]);
+  const loadFichas = async () => {
+    try {
+      const data: FichaTreinoResponse[] = await fichaService.getByTreinoId(treNrIdNumeric);
+      const mappedExercises: Exercise[] = data.map((item) => {
+        const repsArray = item.fitTxMetaRepeticoes.split('-');
+        const generatedSets: SetMeta[] = Array.from({ length: item.fitNrMetaSeries }).map((_, index) => ({
+          id: `${item.fitNrId}_set_${index + 1}`,
+          setNumber: index + 1,
+          targetReps: repsArray[index] || repsArray[0] || '10',
+          doneReps: '',
+          doneWeight: String(item.fitNrMetaPeso || ''),
+          isDone: false,
+        }));
+
+        return {
+          id: String(item.fitNrId),
+          exeNrId: item.exeNrId,
+          name: item.exeTxNome,
+          sets: generatedSets,
+          groupId: item.fitNrGrupo ? String(item.fitNrGrupo) : undefined,
+          fitNrOrdem: item.fitNrOrdem,
+        };
+      });
+
+      setExercises(mappedExercises);
+    } catch (error) {
+      showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor Go.', 'error');
+    }
+  };
 
   useEffect(() => {
     if (isTimerRunning && secondsLeft > 0) {
@@ -79,7 +107,6 @@ export default function ExerciseScreen() {
     } else if (secondsLeft === 0 && isTimerRunning) {
       setIsTimerRunning(false);
       if (timerRef.current) clearInterval(timerRef.current);
-      
       showAlert('Descanso Acadêmico', 'Hora de esmagar a próxima série! 💪', 'success');
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -97,12 +124,7 @@ export default function ExerciseScreen() {
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
-  const showAlert = (
-    title: string, 
-    message: string, 
-    type: CustomAlertType, 
-    buttons?: AlertButton[]
-  ) => {
+  const showAlert = (title: string, message: string, type: CustomAlertType, buttons?: AlertButton[]) => {
     setAlertTitle(title);
     setAlertMessage(message);
     setAlertType(type);
@@ -140,59 +162,68 @@ export default function ExerciseScreen() {
     });
   };
 
-  const handleAddExerciseToFicha = () => {
+  const handleAddExerciseToFicha = async () => {
     if (!newExerciseName.trim()) {
-      showAlert('Erro', 'Por favor, digite o nome do exercício.', 'warning');
+      showAlert('Erro', 'Por favor, selecione ou digite o nome do exercício.', 'warning');
       return;
     }
 
     setIsSavingExercise(true);
 
-    setTimeout(async () => {
-      const generatedSets: SetMeta[] = modalSets.map((set, index) => ({
-        id: Math.random().toString(),
-        setNumber: index + 1,
-        targetReps: set.targetReps.trim() || '10',
-        doneReps: '',
-        doneWeight: '',
-        isDone: false,
-      }));
+    try {
+      const fitTxMetaRepeticoes = modalSets.map(s => s.targetReps.trim() || '10').join('-');
+      const fitNrMetaSeries = modalSets.length;
+      const nextOrdem = exercises.length > 0 ? Math.max(...exercises.map(e => e.fitNrOrdem)) + 1 : 1;
 
-      const targetGroupId = selectedParentIds.length > 0
-        ? (exercises.find(ex => ex.id === selectedParentIds[0])?.groupId || `combo_${Math.random().toString()}`)
-        : undefined;
+      let fitNrGrupoFinal: number | undefined = undefined;
+      if (selectedParentIds.length > 0) {
+        const parentExercise = exercises.find(ex => ex.id === selectedParentIds[0]);
 
-      const newExercise: Exercise = {
-        id: Math.random().toString(),
-        name: newExerciseName.trim(),
-        sets: generatedSets,
-        groupId: targetGroupId,
+        if (parentExercise) {
+          if (parentExercise.groupId) {
+            fitNrGrupoFinal = Number(parentExercise.groupId);
+          } else {
+            const novoGrupoId = Math.floor(1000 + Math.random() * 9000);
+            fitNrGrupoFinal = novoGrupoId;
+            const updateParentPayload: FichaTreinoPayload = {
+              fitNrId: Number(parentExercise.id),
+              treNrId: treNrIdNumeric,
+              exeNrId: parentExercise.exeNrId,
+              fitNrOrdem: parentExercise.fitNrOrdem,
+              fitNrMetaSeries: parentExercise.sets.length,
+              fitTxMetaRepeticoes: parentExercise.sets.map(s => s.targetReps).join('-'),
+              fitNrMetaPeso: parseFloat(parentExercise.sets[0]?.doneWeight) || 0.0,
+              fitNrGrupo: novoGrupoId
+            };
+            await fichaService.update(updateParentPayload);
+          }
+        }
+      }
+      const payload: FichaTreinoPayload = {
+        treNrId: treNrIdNumeric,
+        exeNrId: selectedExerciseId || Math.floor(1 + Math.random() * 100),
+        fitNrOrdem: nextOrdem,
+        fitNrMetaSeries: fitNrMetaSeries,
+        fitTxMetaRepeticoes: fitTxMetaRepeticoes,
+        fitNrMetaPeso: parseFloat(metaPesoInput) || 0.0,
+        fitNrGrupo: fitNrGrupoFinal
       };
 
-      const updatedExercises = targetGroupId
-        ? exercises.map((ex) => selectedParentIds.includes(ex.id) ? { ...ex, groupId: targetGroupId } : ex).concat(newExercise)
-        : [...exercises, newExercise];
-
-      const savedRoutines = await storageService.getRoutines() || [];
-      const updatedRoutines = savedRoutines.map((routine: any) => {
-        if (routine.id === id) {
-          return { ...routine, exercises: updatedExercises };
-        }
-        return routine;
-      });
-
-      await storageService.saveRoutines(updatedRoutines);
-
-      setExercises(updatedExercises);
+      await fichaService.create(payload);
+      await loadFichas();
       setNewExerciseName('');
+      setMetaPesoInput('0');
       setSelectedParentIds([]);
       setModalSets([{ targetReps: '10' }]);
-      setIsSavingExercise(false);
       setIsAddModalVisible(false);
-    }, 400);
+    } catch (error: any) {
+      const msg = error.response?.data?.erro || 'Falha ao salvar a conjugação no servidor Go.';
+      showAlert('Erro de Gravação', msg, 'error');
+    } finally {
+      setIsSavingExercise(false);
+    }
   };
 
-  // 🚀 NOVA FUNÇÃO: Lógica para disparar o Alerta e executar a deleção física
   const handleDeleteExerciseTrigger = (exerciseId: string, exerciseName: string) => {
     showAlert(
       'Remover Exercício',
@@ -200,39 +231,19 @@ export default function ExerciseScreen() {
       'error',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Excluir', style: 'destructive', onPress: () => executeDeleteExercise(exerciseId) }
+        { text: 'Excluir', style: 'destructive', onPress: () => executeDeleteExercise(Number(exerciseId)) }
       ]
     );
   };
 
-  const executeDeleteExercise = async (exerciseId: string) => {
-    // Filtra removendo o alvo da lista em memória
-    const updatedExercises = exercises.filter(ex => ex.id !== exerciseId);
-
-    // Lógica inteligente: se sobrou apenas um exercício no grupo conjugado, ele perde o groupId (não faz sentido conjugar sozinho)
-    const groupedCounts: { [key: string]: number } = {};
-    updatedExercises.forEach(ex => {
-      if (ex.groupId) groupedCounts[ex.groupId] = (groupedCounts[ex.groupId] || 0) + 1;
-    });
-
-    const finalExercises = updatedExercises.map(ex => {
-      if (ex.groupId && groupedCounts[ex.groupId] < 2) {
-        return { ...ex, groupId: undefined };
-      }
-      return ex;
-    });
-
-    // Salva no banco local
-    const savedRoutines = await storageService.getRoutines() || [];
-    const updatedRoutines = savedRoutines.map((routine: any) => {
-      if (routine.id === id) {
-        return { ...routine, exercises: finalExercises };
-      }
-      return routine;
-    });
-
-    await storageService.saveRoutines(updatedRoutines);
-    setExercises(finalExercises);
+  const executeDeleteExercise = async (fitNrId: number) => {
+    try {
+      await fichaService.delete(fitNrId);
+      await loadFichas();
+    } catch (error: any) {
+      const msg = error.response?.data?.erro || 'Não foi possível remover o exercício do banco de dados.';
+      showAlert('Erro ao Deletar', msg, 'error');
+    }
   };
 
   const handleUpdateSetLog = (exerciseId: string, setId: string, field: 'doneReps' | 'doneWeight', value: string) => {
@@ -284,6 +295,7 @@ export default function ExerciseScreen() {
 
   const handleFinishWorkout = async () => {
     setIsFinishing(true);
+    
     const workoutLog = {
       id: Math.random().toString(),
       routineId: id,
@@ -299,16 +311,21 @@ export default function ExerciseScreen() {
       })),
     };
 
-    const existingLogs = await storageService.getWorkoutLogs() || [];
-    await storageService.saveWorkoutLog([workoutLog, ...existingLogs]);
-    setIsFinishing(false);
+    try {
+      const existingLogs = await storageService.getWorkoutLogs() || [];
+      await storageService.saveWorkoutLog([workoutLog, ...existingLogs]);
 
-    showAlert(
-      'Treino Concluído!', 
-      'O registro de hoje foi salvo no seu histórico.', 
-      'success',
-      [{ text: 'Boa!', onPress: () => router.push('/(tabs)/routines') }]
-    );
+      showAlert(
+        'Treino Concluído!', 
+        'O registro de hoje foi salvo no seu histórico.', 
+        'success',
+        [{ text: 'Boa!', onPress: () => router.push('/(tabs)/routines') }]
+      );
+    } catch (error) {
+      showAlert('Erro', 'Não foi possível salvar os logs de execução do treino.', 'error');
+    } finally {
+      setIsFinishing(false);
+    }
   };
 
   const renderTimeDigits = () => {
@@ -359,6 +376,7 @@ export default function ExerciseScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          ListEmptyComponent={<Text style={styles.emptyText}>Nenhum exercício cadastrado nesta ficha do banco Go.</Text>}
           renderItem={({ item: exercise, index }) => {
             const nextExercise = exercises[index + 1];
             const isConjugadoComProximo = exercise.groupId && nextExercise && nextExercise.groupId === exercise.groupId;
@@ -383,7 +401,6 @@ export default function ExerciseScreen() {
             return (
               <View style={dynamicCardStyle}>
                 <View style={styles.exerciseHeaderRow}>
-                  {/* Nome e Tag do Exercício */}
                   <View style={styles.exerciseTitleBlock}>
                     <Text style={styles.exerciseName}>{exercise.name}</Text>
                     {exercise.groupId && (
@@ -393,7 +410,6 @@ export default function ExerciseScreen() {
                     )}
                   </View>
                   
-                  {/* Botão de deleção no topo direito de cada Card */}
                   <TouchableOpacity 
                     onPress={() => handleDeleteExerciseTrigger(exercise.id, exercise.name)}
                     activeOpacity={0.6}
@@ -449,13 +465,15 @@ export default function ExerciseScreen() {
             );
           }}
           ListFooterComponent={
-            <Button title="Finalizar Treino de Hoje" isLoading={isFinishing} onPress={handleFinishWorkout} style={styles.finishBtn} />
+            exercises.length > 0 ? (
+              <Button title="Finalizar Treino de Hoje" isLoading={isFinishing} onPress={handleFinishWorkout} style={styles.finishBtn} />
+            ) : null
           }
         />
       </KeyboardAvoidingView>
 
       {/* Configuração dinâmica de metas série por série */}
-      <Modal visible={isAddModalVisible} animationType="fade" transparent={true}>
+      <Modal visible={isAddModalVisible} animationType="fade" transparent={true} onRequestClose={() => setIsAddModalVisible(false)}>
         <View style={styles.modalOverlayCenter}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -474,9 +492,17 @@ export default function ExerciseScreen() {
                 contentContainerStyle={styles.modalScrollContainer}
                 keyboardShouldPersistTaps="handled"
               >
+                
                 <ExerciseSelect
                   value={newExerciseName}
-                  onChangeText={setNewExerciseName}
+                  onChangeText={(text, itemID) => {
+                    setNewExerciseName(text);
+                    if (itemID === -1) {
+                      setIsCustomModalVisible(true);
+                    } else if (itemID) {
+                      setSelectedExerciseId(Number(itemID));
+                    }
+                  }}
                 />
 
                 {/* DROPDOWN MULTIPLO */}
@@ -520,7 +546,15 @@ export default function ExerciseScreen() {
                     </ScrollView>
                   )}
                 </View>
-
+                <View style={{ marginTop: theme.spacing.sm }}>
+                  <Input
+                    label="Meta de Carga Inicial (kg)"
+                    placeholder="Ex: 20"
+                    keyboardType="numeric"
+                    value={metaPesoInput}
+                    onChangeText={setMetaPesoInput}
+                  />
+                </View>
                 {/* Sub-cabeçalho das séries */}
                 <View style={styles.modalSetsSectionHeader}>
                   <Text style={styles.modalSetsSectionTitle}>Definir Metas das Séries</Text>
@@ -594,6 +628,15 @@ export default function ExerciseScreen() {
         type={alertType}
         buttons={alertButtons}
         onClose={() => setAlertVisible(false)}
+      />
+      <CustomExerciseModal
+        visible={isCustomModalVisible}
+        initialName={newExerciseName}
+        onClose={() => setIsCustomModalVisible(false)}
+        onSaveSuccess={(nome, geradoID) => {
+          setNewExerciseName(nome);
+          setSelectedExerciseId(geradoID);
+        }}
       />
     </View>
   );
@@ -675,11 +718,11 @@ const styles = StyleSheet.create({
   modalColumnTitleNumber: { fontSize: 12, fontWeight: '600', color: theme.colors.textMuted, width: 25, textAlign: 'center' },
   modalColumnTitleLabel: { fontSize: 12, fontWeight: '600', color: theme.colors.textMuted, paddingLeft: 2 },
 
-  modalSetsScrollView: { maxHeight: 180, marginBottom: theme.spacing.md },
   modalSetsContainer: { width: '100%' },
   modalSetRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: theme.spacing.sm },
   modalSetNumberLabel: { fontSize: 13, fontWeight: 'bold', color: theme.colors.primary, width: 25, textAlign: 'center' },
   removeSetRowBtn: { paddingLeft: 12, justifyContent: 'center', alignItems: 'center', height: 40 },
   modalScrollContainer: { paddingBottom: theme.spacing.xs },
-  modalSubmitBtn: { marginTop: theme.spacing.sm, width: '100%' }
+  modalSubmitBtn: { marginTop: theme.spacing.sm, width: '100%' },
+  emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.spacing.xl }
 });

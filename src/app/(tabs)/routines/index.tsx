@@ -27,6 +27,8 @@ export default function RoutinesRoute() {
   const [alertType, setAlertType] = useState<CustomAlertType>('info');
   const [alertButtons, setAlertButtons] = useState<AlertButton[]>([]);
 
+  const [routineToDelete, setRoutineToDelete] = useState<number | null>(null);
+
   useEffect(() => {
     if (isFocused) {
       loadRoutines();
@@ -94,25 +96,46 @@ export default function RoutinesRoute() {
   };
 
   const handleDeleteTrigger = (id: number, name: string) => {
+    setRoutineToDelete(id);
+
     showAlert(
       'Deletar Rotina',
       `Tem certeza que deseja excluir o "${name}"? Todas as fichas ligadas a ele serão apagadas.`,
       'error',
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Deletar', style: 'destructive', onPress: () => handleConfirmDelete(id) }
+        { text: 'Cancelar', style: 'cancel', onPress: () => setRoutineToDelete(null) },
+        { 
+          text: 'Deletar', 
+          style: 'destructive', 
+          onPress: () => handleConfirmDelete() 
+        }
       ]
     );
   };
 
-  const handleConfirmDelete = async (id: number) => {
-    try {
-      await workoutService.delete(id);
-      loadRoutines();
-    } catch (error) {
-      showAlert('Erro ao Deletar', 'Não foi possível excluir o treino no servidor.', 'error');
-    }
-  };
+  const handleConfirmDelete = async () => {
+  if (!routineToDelete) return;
+  setIsLoading(true);
+
+  try {
+    await workoutService.delete(routineToDelete);
+    await loadRoutines();
+    setRoutineToDelete(null);
+  } catch (error: any) {
+
+    const backendError = error.response?.data?.erro || error.response?.data?.message || error.message;
+
+    setTimeout(() => {
+      showAlert(
+        'Erro no Servidor (Go)',
+        `O banco rejeitou a deleção. Motivo:\n\n"${backendError}"`,
+        'error'
+      );
+    }, 400);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleSaveRoutine = async () => {
     if (!nameInput.trim() || !descriptionInput.trim()) {
