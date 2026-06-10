@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/Cus
 import { storageService } from '@/services/storageService';
 import { useIsFocused } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
+import { evolutionService } from '@/services/evolutionService';
 
 interface DisplaySummary {
   nextWorkout: string;
@@ -20,6 +21,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
   const [userName, setUserName] = useState('Atleta');
+  const [isMetricsLoading, setIsMetricsLoading] = useState(false);
 
   const [summary, setSummary] = useState<DisplaySummary>({
     nextWorkout: 'Nenhum Treino',
@@ -41,64 +43,86 @@ export default function HomeScreen() {
     }
   }, [isFocused]);
 
+  // Formata a data ISO do Go para o padrão brasileiro visual
+  const formatDate = (isoString?: string) => {
+    if (!isoString) return '--/--/----';
+    return new Date(isoString).toLocaleDateString('pt-BR');
+  };
+
   const loadHomeData = async () => {
+    // 1. Carrega o nome do usuário salvo no SecureStore
     const savedName = await SecureStore.getItemAsync('user_name');
     if (savedName) {
       const firstName = savedName.trim().split(' ')[0];
       setUserName(firstName);
     }
-    const [savedRoutines, workoutLogs, evolutionLogs] = await Promise.all([
-      storageService.getRoutines(),
-      storageService.getWorkoutLogs(),
-      storageService.getEvolution()
-    ]);
 
-    let nextWorkoutName = 'Nenhum Treino';
-    let nextWorkoutDescription = 'Cadastre um treino nas rotinas';
+    setIsMetricsLoading(true);
 
-    if (savedRoutines && savedRoutines.length > 0) {
-      if (workoutLogs && workoutLogs.length > 0) {
-        const lastExecutedRoutineId = workoutLogs[0].routineId;
-        const lastRoutineIndex = savedRoutines.findIndex((r: any) => r.id === lastExecutedRoutineId);
+    try {
+      // 2. Busca assincronamente as rotinas locais e a medição mais recente do Backend Go
+      const [savedRoutines, workoutLogs, latestMetric] = await Promise.all([
+        storageService.getRoutines(),
+        storageService.getWorkoutLogs(),
+        evolutionService.getLatest() // <-- MUDANÇA AQUI: Consumindo o banco Go
+      ]);
 
-        if (lastRoutineIndex !== -1) {
-          const nextRoutineIndex = (lastRoutineIndex + 1) % savedRoutines.length;
-          nextWorkoutName = savedRoutines[nextRoutineIndex].name;
-          nextWorkoutDescription = savedRoutines[nextRoutineIndex].description;
+      // Lógica de cálculo do próximo treino da fila (mantida intocada)
+      let nextWorkoutName = 'Nenhum Treino';
+      let nextWorkoutDescription = 'Cadastre um treino nas rotinas';
+
+      if (savedRoutines && savedRoutines.length > 0) {
+        if (workoutLogs && workoutLogs.length > 0) {
+          const lastExecutedRoutineId = workoutLogs[0].routineId;
+          const lastRoutineIndex = savedRoutines.findIndex((r: any) => r.id === lastExecutedRoutineId);
+
+          if (lastRoutineIndex !== -1) {
+            const nextRoutineIndex = (lastRoutineIndex + 1) % savedRoutines.length;
+            nextWorkoutName = savedRoutines[nextRoutineIndex].name;
+            nextWorkoutDescription = savedRoutines[nextRoutineIndex].description;
+          } else {
+            nextWorkoutName = savedRoutines[0].name;
+            nextWorkoutDescription = savedRoutines[0].description;
+          }
         } else {
           nextWorkoutName = savedRoutines[0].name;
           nextWorkoutDescription = savedRoutines[0].description;
         }
-      } else {
-        nextWorkoutName = savedRoutines[0].name;
-        nextWorkoutDescription = savedRoutines[0].description;
-      }
-    }
-
-    let currentWeight = '-- kg';
-    let currentArm = '-- cm';
-    let currentUpdateDate = '--/--/----';
-
-    if (evolutionLogs && evolutionLogs.length > 0) {
-      const lastMetric = evolutionLogs[0];
-      currentWeight = `${lastMetric.weight} kg`;
-      
-      if (lastMetric.armRight && lastMetric.armRight !== '--') {
-        currentArm = `${lastMetric.armRight} cm`;
-      } else if (lastMetric.armLeft && lastMetric.armLeft !== '--') {
-        currentArm = `${lastMetric.armLeft} cm`;
       }
 
-      currentUpdateDate = lastMetric.date;
-    }
+      // 3. Processa a resposta da biometria dinâmica vinda do Go
+      let currentWeight = '-- kg';
+      let currentArm = '-- cm';
+      let currentUpdateDate = '--/--/----';
 
-    setSummary({
-      nextWorkout: nextWorkoutName,
-      nextWorkoutFocus: nextWorkoutDescription,
-      lastWeight: currentWeight,
-      lastArm: currentArm,
-      lastUpdate: currentUpdateDate
-    });
+      if (latestMetric) {
+        if (latestMetric.evoNrPeso) {
+          currentWeight = `${latestMetric.evoNrPeso} kg`;
+        }
+        
+        // Verifica as propriedades de ponteiro do braço direito ou esquerdo
+        if (latestMetric.evoNrBracoDireito !== null && latestMetric.evoNrBracoDireito !== undefined) {
+          currentArm = `${latestMetric.evoNrBracoDireito} cm`;
+        } else if (latestMetric.evoNrBracoEsquerdo !== null && latestMetric.evoNrBracoEsquerdo !== undefined) {
+          currentArm = `${latestMetric.evoNrBracoEsquerdo} cm`;
+        }
+
+        currentUpdateDate = formatDate(latestMetric.evoDtData);
+      }
+
+      setSummary({
+        nextWorkout: nextWorkoutName,
+        nextWorkoutFocus: nextWorkoutDescription,
+        lastWeight: currentWeight,
+        lastArm: currentArm,
+        lastUpdate: currentUpdateDate
+      });
+
+    } catch (error) {
+      console.error('Erro ao sincronizar dados da Home:', error);
+    } finally {
+      setIsMetricsLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -137,6 +161,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Card do Próximo Treino */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <View style={styles.iconWrapperPrimary}>
@@ -158,13 +183,18 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Card da Última Medição Atualizado */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <View style={styles.iconWrapperSuccess}>
             <Ionicons name="trending-up" size={20} color={theme.colors.text} />
           </View>
           <Text style={styles.cardTitle}>Última Medição</Text>
-          <Text style={styles.dateBadge}>{summary.lastUpdate}</Text>
+          {isMetricsLoading ? (
+            <ActivityIndicator size="small" color={theme.colors.textMuted} />
+          ) : (
+            <Text style={styles.dateBadge}>{summary.lastUpdate}</Text>
+          )}
         </View>
 
         <View style={styles.statsRow}>

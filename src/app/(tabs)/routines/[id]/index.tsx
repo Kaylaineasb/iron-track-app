@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform, ScrollView, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { storageService } from '@/services/storageService';
 import { ExerciseSelect } from '@/core/components/ExerciseSelect';
 import { fichaService, FichaTreinoResponse, FichaTreinoPayload } from '@/services/fichaService';
 import { CustomExerciseModal } from '@/core/components/CustomExerciseModal';
+import { sessionService } from '@/services/sessionService';
 
 interface SetMeta {
   id: string;
@@ -43,6 +44,11 @@ export default function ExerciseScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isFinishing, setIsFinishing] = useState(false);
 
+  // Estados de Sessão Ativa
+  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isStartingSession, setIsStartingSession] = useState(false);
+
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const timerRef = useRef<any>(null);
@@ -67,9 +73,24 @@ export default function ExerciseScreen() {
 
   useEffect(() => {
     if (treNrIdNumeric) {
-      loadFichas();
+      initScreenData();
     }
   }, [treNrIdNumeric]);
+
+  const initScreenData = async () => {
+    setIsCheckingSession(true);
+    try {
+      const sessionStatus = await sessionService.checkTodaySession(treNrIdNumeric);
+      if (sessionStatus.hasSession) {
+        setActiveSessionId(sessionStatus.setNrId);
+      }
+      await loadFichas();
+    } catch (error) {
+      console.error('Erro ao inicializar sessão de treino:', error);
+    } finally {
+      setIsCheckingSession(false);
+    }
+  };
 
   const loadFichas = async () => {
     try {
@@ -98,6 +119,21 @@ export default function ExerciseScreen() {
       setExercises(mappedExercises);
     } catch (error) {
       showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor Go.', 'error');
+    }
+  };
+
+  const handleStartWorkoutSession = async () => {
+    setIsStartingSession(true);
+    try {
+      const newSession = await sessionService.startSession(treNrIdNumeric);
+      if (newSession.setNrId) {
+        setActiveSessionId(newSession.setNrId);
+        showAlert('Treino Iniciado!', 'Sua sessão está ativa. Bom treino!', 'success');
+      }
+    } catch (error) {
+      showAlert('Erro', 'Não foi possível iniciar a sessão de treino no servidor Go.', 'error');
+    } finally {
+      setIsStartingSession(false);
     }
   };
 
@@ -319,7 +355,10 @@ export default function ExerciseScreen() {
         'Treino Concluído!', 
         'O registro de hoje foi salvo no seu histórico.', 
         'success',
-        [{ text: 'Boa!', onPress: () => router.push('/(tabs)/routines') }]
+        [{ text: 'Boa!', onPress: () => {
+          setActiveSessionId(null);
+          router.push('/(tabs)/routines');
+        }}]
       );
     } catch (error) {
       showAlert('Erro', 'Não foi possível salvar os logs de execução do treino.', 'error');
@@ -334,13 +373,24 @@ export default function ExerciseScreen() {
       : '00:00';
   };
 
+  if (isCheckingSession) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ color: theme.colors.textSecondary, marginTop: 10 }}>Validando sessão diária...</Text>
+      </View>
+    );
+  }
+
+  const hasNoActiveSession = activeSessionId === null;
+
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex1}
       >
-        {/* Cabeçalho */}
+        {/* Cabeçalho - Sempre 100% livre para criar/adicionar */}
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => router.push('/(tabs)/routines')} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
@@ -349,28 +399,48 @@ export default function ExerciseScreen() {
             <Text style={styles.screenTitle}>Executar: {name}</Text>
             <Text style={styles.subtitle}>Anote os pesos e reps de hoje</Text>
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={() => setIsAddModalVisible(true)} activeOpacity={0.8}>
+          <TouchableOpacity 
+            style={styles.addButton} 
+            onPress={() => setIsAddModalVisible(true)} 
+            activeOpacity={0.8}
+          >
             <Ionicons name="add" size={24} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
 
-        {/* Widget do Cronômetro Superior */}
-        <View style={[styles.timerCard, isTimerRunning && styles.timerCardActive]}>
-          <View style={styles.timerInfoRow}>
-            <Ionicons name="time-outline" size={20} color={isTimerRunning ? theme.colors.primary : theme.colors.textSecondary} />
-            <Text style={styles.timerLabel}>{isTimerRunning ? `Descanso ativo na tela...` : 'Tempo de Recuperação'}</Text>
-            <Text style={[styles.timerDigits, isTimerRunning && styles.timerDigitsActive]}>{renderTimeDigits()}</Text>
+        {/* Card para Iniciar Sessão - Fica visível fixo se não iniciou */}
+        {hasNoActiveSession && (
+          <View style={styles.startSessionCard}>
+            <Ionicons name="play-circle-outline" size={26} color={theme.colors.primary} />
+            <Text style={styles.startSessionText}>Sua ficha está aberta para visualização. Inicie o treino de hoje para marcar as séries!</Text>
+            <Button 
+              title="🚀 Iniciar Treino de Hoje" 
+              isLoading={isStartingSession} 
+              onPress={handleStartWorkoutSession} 
+              style={{ width: '100%', marginTop: 4 }} 
+            />
           </View>
-          {!isTimerRunning && (
-            <View style={styles.timerControlsRow}>
-              <TouchableOpacity style={styles.timerQuickBtn} onPress={() => startTimer(45)}><Text style={styles.timerQuickBtnText}>45s</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.timerQuickBtn} onPress={() => startTimer(60)}><Text style={styles.timerQuickBtnText}>1m</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.timerQuickBtn} onPress={() => startTimer(90)}><Text style={styles.timerQuickBtnText}>1:30m</Text></TouchableOpacity>
-            </View>
-          )}
-        </View>
+        )}
 
-        {/* Listagem principal de Execução */}
+        {/* Widget do Cronômetro Superior - Só liga com sessão ativa */}
+        {!hasNoActiveSession && (
+          <View style={[styles.timerCard, isTimerRunning && styles.timerCardActive]}>
+            <View style={styles.timerInfoRow}>
+              <Ionicons name="time-outline" size={20} color={isTimerRunning ? theme.colors.primary : theme.colors.textSecondary} />
+              <Text style={styles.timerLabel}>{isTimerRunning ? `Descanso ativo na tela...` : 'Tempo de Recuperação'}</Text>
+              <Text style={[styles.timerDigits, isTimerRunning && styles.timerDigitsActive]}>{renderTimeDigits()}</Text>
+            </View>
+            {!isTimerRunning && (
+              <View style={styles.timerControlsRow}>
+                <TouchableOpacity style={styles.timerQuickBtn} onPress={() => startTimer(45)}><Text style={styles.timerQuickBtnText}>45s</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.timerQuickBtn} onPress={() => startTimer(60)}><Text style={styles.timerQuickBtnText}>1m</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.timerQuickBtn} onPress={() => startTimer(90)}><Text style={styles.timerQuickBtnText}>1:30m</Text></TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Listagem de Exercícios - Sempre nítida e visível */}
         <FlatList
           data={exercises}
           keyExtractor={(item) => item.id}
@@ -429,7 +499,7 @@ export default function ExerciseScreen() {
                 </View>
 
                 {exercise.sets.map((set) => (
-                  <View key={set.id} style={[styles.setRow, set.isDone && styles.setRowDone]}>
+                  <View key={set.id} style={[styles.setRow, set.isDone && styles.setRowDone, hasNoActiveSession && { opacity: 0.5 }]}>
                     <Text style={styles.setNumberText}>#{set.setNumber}</Text>
                     <Text style={styles.targetRepsText}>{set.targetReps} rp</Text>
 
@@ -438,7 +508,7 @@ export default function ExerciseScreen() {
                         placeholder={set.targetReps}
                         keyboardType="default"
                         value={set.doneReps}
-                        editable={!set.isDone}
+                        editable={!set.isDone && !hasNoActiveSession} // Só bloqueia se não iniciou a sessão do dia
                         onChangeText={(val) => handleUpdateSetLog(exercise.id, set.id, 'doneReps', val)}
                       />
                     </View>
@@ -448,13 +518,14 @@ export default function ExerciseScreen() {
                         placeholder="0"
                         keyboardType="numeric"
                         value={set.doneWeight}
-                        editable={!set.isDone}
+                        editable={!set.isDone && !hasNoActiveSession} // Só bloqueia se não iniciou a sessão do dia
                         onChangeText={(val) => handleUpdateSetLog(exercise.id, set.id, 'doneWeight', val)}
                       />
                     </View>
 
                     <TouchableOpacity
                       style={[styles.checkBtn, set.isDone && styles.checkBtnActive]}
+                      disabled={hasNoActiveSession} // Trava o clique do check se o treino não foi startado
                       onPress={() => handleToggleSetDone(exercise.id, set.id)}
                     >
                       <Ionicons name={set.isDone ? "checkmark-circle" : "ellipse-outline"} size={24} color={set.isDone ? theme.colors.primary : theme.colors.textMuted} />
@@ -465,14 +536,14 @@ export default function ExerciseScreen() {
             );
           }}
           ListFooterComponent={
-            exercises.length > 0 ? (
+            exercises.length > 0 && !hasNoActiveSession ? (
               <Button title="Finalizar Treino de Hoje" isLoading={isFinishing} onPress={handleFinishWorkout} style={styles.finishBtn} />
             ) : null
           }
         />
       </KeyboardAvoidingView>
 
-      {/* Configuração dinâmica de metas série por série */}
+      {/* Modal de Criação / Edição */}
       <Modal visible={isAddModalVisible} animationType="fade" transparent={true} onRequestClose={() => setIsAddModalVisible(false)}>
         <View style={styles.modalOverlayCenter}>
           <KeyboardAvoidingView
@@ -487,12 +558,7 @@ export default function ExerciseScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.modalScrollContainer}
-                keyboardShouldPersistTaps="handled"
-              >
-                
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContainer} keyboardShouldPersistTaps="handled">
                 <ExerciseSelect
                   value={newExerciseName}
                   onChangeText={(text, itemID) => {
@@ -505,7 +571,6 @@ export default function ExerciseScreen() {
                   }}
                 />
 
-                {/* DROPDOWN MULTIPLO */}
                 <View style={styles.dropdownContainer}>
                   <Text style={styles.dropdownLabel}>Conjugar exercício? (Selecione um ou mais se for Tri-Set)</Text>
                   {exercises.length === 0 ? (
@@ -546,6 +611,7 @@ export default function ExerciseScreen() {
                     </ScrollView>
                   )}
                 </View>
+
                 <View style={{ marginTop: theme.spacing.sm }}>
                   <Input
                     label="Meta de Carga Inicial (kg)"
@@ -555,7 +621,7 @@ export default function ExerciseScreen() {
                     onChangeText={setMetaPesoInput}
                   />
                 </View>
-                {/* Sub-cabeçalho das séries */}
+
                 <View style={styles.modalSetsSectionHeader}>
                   <Text style={styles.modalSetsSectionTitle}>Definir Metas das Séries</Text>
                   <TouchableOpacity style={styles.addSetButton} onPress={addSetInModal} activeOpacity={0.7}>
@@ -569,7 +635,6 @@ export default function ExerciseScreen() {
                   <Text style={styles.modalColumnTitleLabel}>Meta de Repetições (Reps)</Text>
                 </View>
 
-                {/* Listagem das metas */}
                 <View style={styles.modalSetsContainer}>
                   {modalSets.map((set, index) => (
                     <View key={index} style={styles.modalSetRow}>
@@ -621,23 +686,8 @@ export default function ExerciseScreen() {
         </View>
       </Modal>
 
-      <CustomAlert
-        visible={alertVisible}
-        title={alertTitle}
-        message={alertMessage}
-        type={alertType}
-        buttons={alertButtons}
-        onClose={() => setAlertVisible(false)}
-      />
-      <CustomExerciseModal
-        visible={isCustomModalVisible}
-        initialName={newExerciseName}
-        onClose={() => setIsCustomModalVisible(false)}
-        onSaveSuccess={(nome, geradoID) => {
-          setNewExerciseName(nome);
-          setSelectedExerciseId(geradoID);
-        }}
-      />
+      <CustomAlert visible={alertVisible} title={alertTitle} message={alertMessage} type={alertType} buttons={alertButtons} onClose={() => setAlertVisible(false)} />
+      <CustomExerciseModal visible={isCustomModalVisible} initialName={newExerciseName} onClose={() => setIsCustomModalVisible(false)} onSaveSuccess={(nome, geradoID) => { setNewExerciseName(nome); setSelectedExerciseId(geradoID); }} />
     </View>
   );
 }
@@ -650,7 +700,8 @@ const styles = StyleSheet.create({
   screenTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
   subtitle: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
   addButton: { backgroundColor: theme.colors.primary, width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-
+  startSessionCard: { backgroundColor: theme.colors.surface, padding: theme.spacing.md, borderRadius: theme.borderRadius.lg, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: theme.colors.surfaceLight, marginBottom: theme.spacing.sm },
+  startSessionText: { color: theme.colors.textSecondary, fontSize: 12, textAlign: 'center', lineHeight: 16, paddingHorizontal: 4 },
   timerCard: { backgroundColor: theme.colors.surface, padding: theme.spacing.sm, borderRadius: theme.borderRadius.md, marginBottom: theme.spacing.md, borderWidth: 1, borderColor: theme.colors.surfaceLight },
   timerCardActive: { borderColor: theme.colors.primary },
   timerInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
@@ -660,15 +711,12 @@ const styles = StyleSheet.create({
   timerControlsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: theme.spacing.xs, gap: 8 },
   timerQuickBtn: { flex: 1, backgroundColor: theme.colors.surfaceLight, paddingVertical: 4, borderRadius: theme.borderRadius.sm, alignItems: 'center' },
   timerQuickBtnText: { color: theme.colors.text, fontSize: 11, fontWeight: '600' },
-
   listContainer: { paddingBottom: theme.spacing.xl },
   exerciseCard: { backgroundColor: theme.colors.surface, padding: theme.spacing.md, borderRadius: theme.borderRadius.lg, marginBottom: theme.spacing.md, borderWidth: 1, borderColor: theme.colors.surfaceLight },
   exerciseName: { fontSize: 16, fontWeight: 'bold', color: theme.colors.text, flexShrink: 1 },
-  
   exerciseHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm, gap: 12 },
   exerciseTitleBlock: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' },
   deleteExerciseBtn: { padding: 4, justifyContent: 'center', alignItems: 'center' },
-
   conjugadoTag: { backgroundColor: theme.colors.surfaceLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 0.5, borderColor: theme.colors.primary },
   conjugadoTagText: { fontSize: 10, fontWeight: 'bold', color: theme.colors.primary, letterSpacing: 0.5 },
   columnHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
@@ -690,13 +738,11 @@ const styles = StyleSheet.create({
   giantTimerContainer: { backgroundColor: theme.colors.background, width: 140, height: 140, borderRadius: 70, justifyContent: 'center', alignItems: 'center', marginBottom: theme.spacing.xl, borderWidth: 3, borderColor: theme.colors.primary },
   giantTimerText: { fontSize: 32, fontWeight: 'bold', color: theme.colors.text },
   modalSkipBtn: { width: '100%' },
-
   modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: theme.spacing.lg },
   keyboardViewCentered: { width: '100%', justifyContent: 'center', alignItems: 'center', },
   modalContentCenter: { backgroundColor: theme.colors.surface, width: '100%', borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg, maxHeight: '85%', borderWidth: 1, borderColor: theme.colors.surfaceLight, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.md },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
-
   dropdownContainer: { marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
   dropdownLabel: { fontSize: 12, fontWeight: '600', color: theme.colors.textSecondary, marginBottom: 8 },
   dropdownScroll: { gap: 8, paddingBottom: 4 },
@@ -705,19 +751,15 @@ const styles = StyleSheet.create({
   dropdownItemText: { fontSize: 13, color: theme.colors.textSecondary },
   dropdownItemTextActive: { color: theme.colors.primary, fontWeight: 'bold' },
   checkboxLabelRow: { flexDirection: 'row', alignItems: 'center' },
-
   dropdownEmptyState: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: theme.colors.surfaceLight, padding: 10, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.05)' },
   dropdownEmptyStateText: { fontSize: 11, color: theme.colors.textMuted, flex: 1, lineHeight: 15 },
-
   modalSetsSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: theme.spacing.md, marginBottom: theme.spacing.sm },
   modalSetsSectionTitle: { fontSize: 13, fontWeight: '700', color: theme.colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
   addSetButton: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: theme.colors.surfaceLight, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 4 },
   addSetButtonText: { fontSize: 12, fontWeight: 'bold', color: theme.colors.text },
-
   modalColumnTitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: theme.spacing.xs, marginBottom: theme.spacing.xs },
   modalColumnTitleNumber: { fontSize: 12, fontWeight: '600', color: theme.colors.textMuted, width: 25, textAlign: 'center' },
   modalColumnTitleLabel: { fontSize: 12, fontWeight: '600', color: theme.colors.textMuted, paddingLeft: 2 },
-
   modalSetsContainer: { width: '100%' },
   modalSetRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: theme.spacing.sm },
   modalSetNumberLabel: { fontSize: 13, fontWeight: 'bold', color: theme.colors.primary, width: 25, textAlign: 'center' },
