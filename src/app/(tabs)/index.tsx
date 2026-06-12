@@ -8,6 +8,7 @@ import { storageService } from '@/services/storageService';
 import { useIsFocused } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import { evolutionService } from '@/services/evolutionService';
+import { workoutService } from '@/services/workoutService';
 
 interface DisplaySummary {
   nextWorkout: string;
@@ -58,8 +59,8 @@ export default function HomeScreen() {
     setIsMetricsLoading(true);
 
     try {
-      const [savedRoutines, workoutLogs, latestMetric] = await Promise.all([
-        storageService.getRoutines(),
+      const [apiRoutines, workoutLogs, latestMetric] = await Promise.all([
+        workoutService.getAll(),
         storageService.getWorkoutLogs(),
         evolutionService.getLatest()
       ]);
@@ -67,22 +68,23 @@ export default function HomeScreen() {
       let nextWorkoutName = 'Nenhum Treino';
       let nextWorkoutDescription = 'Cadastre um treino';
 
-      if (savedRoutines && savedRoutines.length > 0) {
+      if (apiRoutines && apiRoutines.length > 0) {
         if (workoutLogs && workoutLogs.length > 0) {
           const lastExecutedRoutineId = workoutLogs[0].routineId;
-          const lastRoutineIndex = savedRoutines.findIndex((r: any) => r.id === lastExecutedRoutineId);
+          
+          const lastRoutineIndex = apiRoutines.findIndex((r: any) => String(r.treNrId) === String(lastExecutedRoutineId));
 
           if (lastRoutineIndex !== -1) {
-            const nextRoutineIndex = (lastRoutineIndex + 1) % savedRoutines.length;
-            nextWorkoutName = savedRoutines[nextRoutineIndex].name;
-            nextWorkoutDescription = savedRoutines[nextRoutineIndex].description;
+            const nextRoutineIndex = (lastRoutineIndex + 1) % apiRoutines.length;
+            nextWorkoutName = apiRoutines[nextRoutineIndex].treTxNome;
+            nextWorkoutDescription = apiRoutines[nextRoutineIndex].treTxDescricao || 'Sem foco definido';
           } else {
-            nextWorkoutName = savedRoutines[0].name;
-            nextWorkoutDescription = savedRoutines[0].description;
+            nextWorkoutName = apiRoutines[0].treTxNome;
+            nextWorkoutDescription = apiRoutines[0].treTxDescricao || 'Sem foco definido';
           }
         } else {
-          nextWorkoutName = savedRoutines[0].name;
-          nextWorkoutDescription = savedRoutines[0].description;
+          nextWorkoutName = apiRoutines[0].treTxNome;
+          nextWorkoutDescription = apiRoutines[0].treTxDescricao || 'Sem foco definido';
         }
       }
 
@@ -94,11 +96,9 @@ export default function HomeScreen() {
         if (latestMetric.evoNrPeso) {
           currentWeight = `${latestMetric.evoNrPeso} kg`;
         }
-        
         if (latestMetric.evoNrAltura) {
           currentHeight = `${latestMetric.evoNrAltura} m`;
         }
-
         currentUpdateDate = formatDate(latestMetric.evoDtData);
       }
 

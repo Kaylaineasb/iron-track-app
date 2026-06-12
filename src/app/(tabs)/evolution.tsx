@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, SectionList, TouchableOpacity, ActivityIndicato
 import { theme } from '@/core/theme/theme';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
-import { CustomAlert, CustomAlertType } from '@/core/components/CustomAlert';
+import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { evolutionService, EvolucaoModel } from '@/services/evolutionService';
 
@@ -22,6 +22,7 @@ export default function EvolutionRoute() {
   const [alertTitle, setAlertTitle] = useState('');
   const [alertMessage, setAlertMessage] = useState('');
   const [alertType, setAlertType] = useState<CustomAlertType>('info');
+  const [alertButtons, setAlertButtons] = useState<AlertButton[]>([]);
 
   const [form, setForm] = useState({
     weight: '', height: '', shoulder: '', bust: '', abdomen: '',
@@ -72,10 +73,11 @@ export default function EvolutionRoute() {
     return Object.keys(groups).map((key) => ({ title: key, data: groups[key] }));
   };
 
-  const showAlert = (title: string, message: string, type: CustomAlertType) => {
+  const showAlert = (title: string, message: string, type: CustomAlertType, buttons?: AlertButton[]) => {
     setAlertTitle(title);
     setAlertMessage(message);
     setAlertType(type);
+    setAlertButtons(buttons || []);
     setAlertVisible(true);
   };
 
@@ -138,6 +140,37 @@ export default function EvolutionRoute() {
     }
   };
 
+  const handleDeleteTrigger = (evoNrID?: number, dateString?: string) => {
+    if (!evoNrID) return;
+
+    showAlert(
+      'Remover Registro',
+      `Tem certeza que deseja apagar a medição do dia ${formatDate(dateString)} do histórico?`,
+      'error',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Excluir', 
+          style: 'destructive', 
+          onPress: () => executeDeleteMeasurement(evoNrID) 
+        }
+      ]
+    );
+  };
+
+  const executeDeleteMeasurement = async (evoNrID: number) => {
+    setIsFetching(true);
+    try {
+      await evolutionService.delete(evoNrID);
+      await loadEvolutionData();
+    } catch (error: any) {
+      const msg = error.response?.data?.erro || 'Não foi possível remover a medição do servidor.';
+      showAlert('Erro ao Deletar', msg, 'error');
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
   const sections = groupMeasurementsByMonth(history);
 
   return (
@@ -151,7 +184,7 @@ export default function EvolutionRoute() {
         ListEmptyComponent={!isFetching ? <Text style={styles.emptyText}>Nenhuma medição registrada.</Text> : null}
         ListHeaderComponent={
           <View>
-            <Text style={styles.screenTitle}>📉 Sua Evolução</Text>
+            <Text style={styles.screenTitle}>Sua Evolução</Text>
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Nova Medição</Text>
@@ -227,7 +260,17 @@ export default function EvolutionRoute() {
         )}
         renderItem={({ item }) => (
           <View style={styles.historyCard}>
-            <Text style={styles.dateText}>{formatDate(item.evoDtData)}</Text>
+            {/* Cabeçalho do Card com Data e o Botão Lixeira */}
+            <View style={styles.historyCardHeader}>
+              <Text style={styles.dateText}>{formatDate(item.evoDtData)}</Text>
+              <TouchableOpacity 
+                onPress={() => handleDeleteTrigger(item.evoNrID, item.evoDtData)}
+                activeOpacity={0.6}
+                style={styles.deleteBtn}
+              >
+                <Ionicons name="trash-outline" size={16} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            </View>
             
             <View style={styles.mainStatsRow}>
               <Text style={styles.mainStatText}>Peso: <Text style={styles.boldText}>{item.evoNrPeso} kg</Text></Text>
@@ -260,6 +303,7 @@ export default function EvolutionRoute() {
         title={alertTitle}
         message={alertMessage}
         type={alertType}
+        buttons={alertButtons}
         onClose={() => setAlertVisible(false)}
       />
     </View>
@@ -282,7 +326,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text, marginTop: theme.spacing.md, marginBottom: theme.spacing.sm },
   sectionHeaderTitle: { fontSize: 14, fontWeight: 'bold', color: theme.colors.primary, marginTop: theme.spacing.md, marginBottom: theme.spacing.xs, textTransform: 'uppercase', letterSpacing: 1 },
   historyCard: { backgroundColor: theme.colors.surface, padding: theme.spacing.md, borderRadius: theme.borderRadius.md, marginBottom: theme.spacing.sm, borderWidth: 1, borderColor: theme.colors.surfaceLight },
-  dateText: { fontSize: 11, color: theme.colors.textMuted, marginBottom: 4 },
+  historyCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  dateText: { fontSize: 11, color: theme.colors.textMuted },
+  deleteBtn: { padding: 2 },
   mainStatsRow: { flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: theme.colors.surfaceLight, paddingBottom: 6, marginBottom: 8 },
   mainStatText: { fontSize: 15, color: theme.colors.textSecondary },
   boldText: { color: theme.colors.text, fontWeight: 'bold' },
