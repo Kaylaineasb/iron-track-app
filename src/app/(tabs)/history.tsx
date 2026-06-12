@@ -4,7 +4,7 @@ import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { storageService } from '@/services/storageService';
 import { useIsFocused } from '@react-navigation/native';
-import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; // 🚀 IMPORTADO
+import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert';
 
 interface LogSet {
   setNumber: number;

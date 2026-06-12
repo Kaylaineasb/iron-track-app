@@ -11,6 +11,7 @@ import { ExerciseSelect } from '@/core/components/ExerciseSelect';
 import { fichaService, FichaTreinoResponse, FichaTreinoPayload } from '@/services/fichaService';
 import { CustomExerciseModal } from '@/core/components/CustomExerciseModal';
 import { sessionService } from '@/services/sessionService';
+import { SerieExecutadaPayload, serieService } from '@/services/serieService';
 
 interface SetMeta {
   id: string;
@@ -19,6 +20,7 @@ interface SetMeta {
   doneReps: string;
   doneWeight: string;
   isDone: boolean;
+  sexNrId?: number;
 }
 
 interface Exercise {
@@ -44,7 +46,6 @@ export default function ExerciseScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [isFinishing, setIsFinishing] = useState(false);
 
-  // Estados de Sessão Ativa
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isStartingSession, setIsStartingSession] = useState(false);
@@ -143,7 +144,7 @@ export default function ExerciseScreen() {
     } else if (secondsLeft === 0 && isTimerRunning) {
       setIsTimerRunning(false);
       if (timerRef.current) clearInterval(timerRef.current);
-      showAlert('Descanso Acadêmico', 'Hora de esmagar a próxima série! 💪', 'success');
+      showAlert('Descanso Acadêmico', 'Hora de esmagar a próxima série!', 'success');
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isTimerRunning, secondsLeft]);
@@ -294,42 +295,78 @@ export default function ExerciseScreen() {
     );
   };
 
-  const handleToggleSetDone = (exerciseId: string, setId: string) => {
-    setExercises((prevExercises) => {
-      const currentExercise = prevExercises.find(ex => ex.id === exerciseId);
-      let shouldStartTimer = false;
+  const handleToggleSetDone = async (exerciseId: string, setId: string) => {
+    if (!activeSessionId) {
+      showAlert('Atenção', 'Inicie a sessão de treino antes de marcar as séries.', 'warning');
+      return;
+    }
 
-      if (currentExercise) {
-        const targetSet = currentExercise.sets.find(s => s.id === setId);
-        const nextState = targetSet ? !targetSet.isDone : false;
+    const currentExercise = exercises.find(ex => ex.id === exerciseId);
+    if (!currentExercise) return;
 
-        if (nextState) {
-          if (!currentExercise.groupId) {
+    const targetSet = currentExercise.sets.find(s => s.id === setId);
+    if (!targetSet) return;
+
+    const isMarkingAsDone = !targetSet.isDone;
+
+    try {
+      if (isMarkingAsDone) {
+        const repsFeitas = targetSet.doneReps.trim() || targetSet.targetReps;
+        const pesoUtilizado = parseFloat(targetSet.doneWeight) || 0.0;
+
+        const payload: SerieExecutadaPayload = {
+          setNrId: activeSessionId,
+          fitNrId: Number(exerciseId), 
+          sexNrSerieNumero: targetSet.setNumber,
+          sexTxRepeticoesExecutadas: String(repsFeitas),
+          sexNrPesoUtilizado: pesoUtilizado
+        };
+
+        const response = await serieService.save(treNrIdNumeric, payload);
+
+        let shouldStartTimer = false;
+        if (!currentExercise.groupId) {
+          shouldStartTimer = true;
+        } else {
+          const groupExercises = exercises.filter(ex => ex.groupId === currentExercise.groupId);
+          const lastExerciseInGroup = groupExercises[groupExercises.length - 1];
+          if (currentExercise.id === lastExerciseInGroup.id) {
             shouldStartTimer = true;
-          } else {
-            const groupExercises = prevExercises.filter(ex => ex.groupId === currentExercise.groupId);
-            const lastExerciseInGroup = groupExercises[groupExercises.length - 1];
-
-            if (currentExercise.id === lastExerciseInGroup.id) {
-              shouldStartTimer = true;
-            }
           }
         }
+        if (shouldStartTimer) startTimer(60);
+        setExercises(prev => prev.map(ex => {
+          if (ex.id !== exerciseId) return ex;
+          return {
+            ...ex,
+            sets: ex.sets.map(s => s.id === setId ? { ...s, isDone: true, sexNrId: response.sexNrId } : s)
+          };
+        }));
+
+      } else {
+        if (targetSet.sexNrId) {
+          await serieService.delete(targetSet.sexNrId);
+        }
+        setExercises(prev => prev.map(ex => {
+          if (ex.id !== exerciseId) return ex;
+          return {
+            ...ex,
+            sets: ex.sets.map(s => s.id === setId ? { ...s, isDone: false, sexNrId: undefined } : s)
+          };
+        }));
       }
 
-      if (shouldStartTimer) startTimer(60);
-
-      return prevExercises.map((ex) => {
-        if (ex.id !== exerciseId) return ex;
-        return {
-          ...ex,
-          sets: ex.sets.map((set) => set.id === setId ? { ...set, isDone: !set.isDone } : set),
-        };
-      });
-    });
+    } catch (error) {
+      showAlert('Erro de Sincronização', 'Não foi possível salvar o status da série no servidor.', 'error');
+    }
   };
 
   const handleFinishWorkout = async () => {
+    if (!activeSessionId) {
+      showAlert('Atenção', 'Nenhuma sessão activa encontrada para finalizar.', 'warning');
+      return;
+    }
+
     setIsFinishing(true);
     
     const workoutLog = {
@@ -348,20 +385,22 @@ export default function ExerciseScreen() {
     };
 
     try {
+      await sessionService.finishSession(activeSessionId);
+
       const existingLogs = await storageService.getWorkoutLogs() || [];
       await storageService.saveWorkoutLog([workoutLog, ...existingLogs]);
 
+      setActiveSessionId(null);
+
       showAlert(
         'Treino Concluído!', 
-        'O registro de hoje foi salvo no seu histórico.', 
+        'Sua sessão foi encerrada com sucesso no servidor Go e salva no histórico.', 
         'success',
-        [{ text: 'Boa!', onPress: () => {
-          setActiveSessionId(null);
-          router.push('/(tabs)/routines');
-        }}]
+        [{ text: 'Excelente!', onPress: () => router.push('/(tabs)/routines') }]
       );
-    } catch (error) {
-      showAlert('Erro', 'Não foi possível salvar os logs de execução do treino.', 'error');
+    } catch (error: any) {
+      const msg = error.response?.data?.erro || 'Não foi possível encerrar sua sessão no servidor.';
+      showAlert('Falha ao Finalizar', msg, 'error');
     } finally {
       setIsFinishing(false);
     }
@@ -386,11 +425,8 @@ export default function ExerciseScreen() {
 
   return (
     <View style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex1}
-      >
-        {/* Cabeçalho - Sempre 100% livre para criar/adicionar */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.flex1}>
+        {/* Cabeçalho */}
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => router.push('/(tabs)/routines')} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
@@ -399,30 +435,21 @@ export default function ExerciseScreen() {
             <Text style={styles.screenTitle}>Executar: {name}</Text>
             <Text style={styles.subtitle}>Anote os pesos e reps de hoje</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.addButton} 
-            onPress={() => setIsAddModalVisible(true)} 
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.addButton} onPress={() => setIsAddModalVisible(true)} activeOpacity={0.8}>
             <Ionicons name="add" size={24} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
 
-        {/* Card para Iniciar Sessão - Fica visível fixo se não iniciou */}
+        {/* Card para Iniciar Sessão */}
         {hasNoActiveSession && (
           <View style={styles.startSessionCard}>
             <Ionicons name="play-circle-outline" size={26} color={theme.colors.primary} />
             <Text style={styles.startSessionText}>Sua ficha está aberta para visualização. Inicie o treino de hoje para marcar as séries!</Text>
-            <Button 
-              title="🚀 Iniciar Treino de Hoje" 
-              isLoading={isStartingSession} 
-              onPress={handleStartWorkoutSession} 
-              style={{ width: '100%', marginTop: 4 }} 
-            />
+            <Button title="🚀 Iniciar Treino de Hoje" isLoading={isStartingSession} onPress={handleStartWorkoutSession} style={{ width: '100%', marginTop: 4 }} />
           </View>
         )}
 
-        {/* Widget do Cronômetro Superior - Só liga com sessão ativa */}
+        {/* Widget do Cronômetro Superior */}
         {!hasNoActiveSession && (
           <View style={[styles.timerCard, isTimerRunning && styles.timerCardActive]}>
             <View style={styles.timerInfoRow}>
@@ -440,7 +467,7 @@ export default function ExerciseScreen() {
           </View>
         )}
 
-        {/* Listagem de Exercícios - Sempre nítida e visível */}
+        {/* Listagem de Exercícios */}
         <FlatList
           data={exercises}
           keyExtractor={(item) => item.id}
@@ -480,11 +507,7 @@ export default function ExerciseScreen() {
                     )}
                   </View>
                   
-                  <TouchableOpacity 
-                    onPress={() => handleDeleteExerciseTrigger(exercise.id, exercise.name)}
-                    activeOpacity={0.6}
-                    style={styles.deleteExerciseBtn}
-                  >
+                  <TouchableOpacity onPress={() => handleDeleteExerciseTrigger(exercise.id, exercise.name)} activeOpacity={0.6} style={styles.deleteExerciseBtn}>
                     <Ionicons name="trash-outline" size={16} color={theme.colors.textMuted} />
                   </TouchableOpacity>
                 </View>
@@ -508,7 +531,7 @@ export default function ExerciseScreen() {
                         placeholder={set.targetReps}
                         keyboardType="default"
                         value={set.doneReps}
-                        editable={!set.isDone && !hasNoActiveSession} // Só bloqueia se não iniciou a sessão do dia
+                        editable={!set.isDone && !hasNoActiveSession}
                         onChangeText={(val) => handleUpdateSetLog(exercise.id, set.id, 'doneReps', val)}
                       />
                     </View>
@@ -518,14 +541,14 @@ export default function ExerciseScreen() {
                         placeholder="0"
                         keyboardType="numeric"
                         value={set.doneWeight}
-                        editable={!set.isDone && !hasNoActiveSession} // Só bloqueia se não iniciou a sessão do dia
+                        editable={!set.isDone && !hasNoActiveSession}
                         onChangeText={(val) => handleUpdateSetLog(exercise.id, set.id, 'doneWeight', val)}
                       />
                     </View>
 
                     <TouchableOpacity
                       style={[styles.checkBtn, set.isDone && styles.checkBtnActive]}
-                      disabled={hasNoActiveSession} // Trava o clique do check se o treino não foi startado
+                      disabled={hasNoActiveSession}
                       onPress={() => handleToggleSetDone(exercise.id, set.id)}
                     >
                       <Ionicons name={set.isDone ? "checkmark-circle" : "ellipse-outline"} size={24} color={set.isDone ? theme.colors.primary : theme.colors.textMuted} />
@@ -546,10 +569,7 @@ export default function ExerciseScreen() {
       {/* Modal de Criação / Edição */}
       <Modal visible={isAddModalVisible} animationType="fade" transparent={true} onRequestClose={() => setIsAddModalVisible(false)}>
         <View style={styles.modalOverlayCenter}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardViewCentered}
-          >
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardViewCentered}>
             <View style={styles.modalContentCenter}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Novo Exercício na Ficha</Text>
@@ -582,28 +602,17 @@ export default function ExerciseScreen() {
                     </View>
                   ) : (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dropdownScroll}>
-                      <TouchableOpacity
-                        style={[styles.dropdownItem, selectedParentIds.length === 0 && styles.dropdownItemActive]}
-                        onPress={() => handleToggleParentSelection('')}
-                        activeOpacity={0.8}
-                      >
+                      <TouchableOpacity style={[styles.dropdownItem, selectedParentIds.length === 0 && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection('')} activeOpacity={0.8}>
                         <Text style={[styles.dropdownItemText, selectedParentIds.length === 0 && styles.dropdownItemTextActive]}>Isolado / Não conjugar</Text>
                       </TouchableOpacity>
 
                       {exercises.map((ex) => {
                         const isSelected = selectedParentIds.includes(ex.id);
                         return (
-                          <TouchableOpacity
-                            key={ex.id}
-                            style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]}
-                            onPress={() => handleToggleParentSelection(ex.id)}
-                            activeOpacity={0.8}
-                          >
+                          <TouchableOpacity key={ex.id} style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection(ex.id)} activeOpacity={0.8}>
                             <View style={styles.checkboxLabelRow}>
                               {isSelected && <Ionicons name="checkmark-sharp" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />}
-                              <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>
-                                {ex.name}
-                              </Text>
+                              <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>{ex.name}</Text>
                             </View>
                           </TouchableOpacity>
                         );
@@ -613,13 +622,7 @@ export default function ExerciseScreen() {
                 </View>
 
                 <View style={{ marginTop: theme.spacing.sm }}>
-                  <Input
-                    label="Meta de Carga Inicial (kg)"
-                    placeholder="Ex: 20"
-                    keyboardType="numeric"
-                    value={metaPesoInput}
-                    onChangeText={setMetaPesoInput}
-                  />
+                  <Input label="Meta de Carga Inicial (kg)" placeholder="Ex: 20" keyboardType="numeric" value={metaPesoInput} onChangeText={setMetaPesoInput} />
                 </View>
 
                 <View style={styles.modalSetsSectionHeader}>
@@ -640,12 +643,7 @@ export default function ExerciseScreen() {
                     <View key={index} style={styles.modalSetRow}>
                       <Text style={styles.modalSetNumberLabel}>#{index + 1}</Text>
                       <View style={styles.flex1}>
-                        <Input
-                          placeholder="Ex: 10"
-                          keyboardType="default"
-                          value={set.targetReps}
-                          onChangeText={(val) => updateSetRepsInModal(index, val)}
-                        />
+                        <Input placeholder="Ex: 10" keyboardType="default" value={set.targetReps} onChangeText={(val) => updateSetRepsInModal(index, val)} />
                       </View>
                       {modalSets.length > 1 && (
                         <TouchableOpacity style={styles.removeSetRowBtn} onPress={() => removeSetInModal(index)}>
@@ -657,12 +655,7 @@ export default function ExerciseScreen() {
                 </View>
               </ScrollView>
 
-              <Button
-                title="Adicionar à Lista"
-                isLoading={isSavingExercise}
-                onPress={handleAddExerciseToFicha}
-                style={styles.modalSubmitBtn}
-              />
+              <Button title="Adicionar à Lista" isLoading={isSavingExercise} onPress={handleAddExerciseToFicha} style={styles.modalSubmitBtn} />
             </View>
           </KeyboardAvoidingView>
         </View>

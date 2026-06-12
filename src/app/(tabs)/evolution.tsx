@@ -10,7 +10,7 @@ import { evolutionService, EvolucaoModel } from '@/services/evolutionService';
 interface SectionData {
   title: string;
   data: EvolucaoModel[];
-}
+} 
 
 export default function EvolutionRoute() {
   const [isExpanded, setIsExpanded] = useState(false);

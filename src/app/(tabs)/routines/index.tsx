@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,7 +40,7 @@ export default function RoutinesRoute() {
       const data = await workoutService.getAll();
       setRoutines(data);
     } catch (error) {
-      showAlert('Erro', 'Não foi possível carregar as suas rotinas do servidor Go.', 'error');
+      showAlert('Erro', 'Não foi possível carregar os seus treinos do servidor Go.', 'error');
     }
   };
 
@@ -54,8 +54,8 @@ export default function RoutinesRoute() {
 
   const handleOpenRoutine = (routineId: number, routineName: string) => {
     router.push({
-      pathname: `/(tabs)/routines/${routineId}`,
-      params: { name: routineName }
+      pathname: `/(tabs)/routines/[id]`,
+      params: { id: String(routineId), name: routineName }
     });
   };
 
@@ -63,7 +63,7 @@ export default function RoutinesRoute() {
     if (!routine.treNrId) return;
 
     showAlert(
-      'Opções da Rotina',
+      'Opções do Treino',
       `O que você deseja fazer com o "${routine.treTxNome}"?`,
       'info',
       [
@@ -99,7 +99,7 @@ export default function RoutinesRoute() {
     setRoutineToDelete(id);
 
     showAlert(
-      'Deletar Rotina',
+      'Deletar Treino',
       `Tem certeza que deseja excluir o "${name}"? Todas as fichas ligadas a ele serão apagadas.`,
       'error',
       [
@@ -114,28 +114,27 @@ export default function RoutinesRoute() {
   };
 
   const handleConfirmDelete = async () => {
-  if (!routineToDelete) return;
-  setIsLoading(true);
+    if (!routineToDelete) return;
+    setIsLoading(true);
 
-  try {
-    await workoutService.delete(routineToDelete);
-    await loadRoutines();
-    setRoutineToDelete(null);
-  } catch (error: any) {
+    try {
+      await workoutService.delete(routineToDelete);
+      await loadRoutines();
+      setRoutineToDelete(null);
+    } catch (error: any) {
+      const backendError = error.response?.data?.erro || error.response?.data?.message || error.message;
 
-    const backendError = error.response?.data?.erro || error.response?.data?.message || error.message;
-
-    setTimeout(() => {
-      showAlert(
-        'Erro no Servidor (Go)',
-        `O banco rejeitou a deleção. Motivo:\n\n"${backendError}"`,
-        'error'
-      );
-    }, 400);
-  } finally {
-    setIsLoading(false);
-  }
-};
+      setTimeout(() => {
+        showAlert(
+          'Erro no Servidor (Go)',
+          `O banco rejeitou a deleção. Motivo:\n\n"${backendError}"`,
+          'error'
+        );
+      }, 400);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSaveRoutine = async () => {
     if (!nameInput.trim() || !descriptionInput.trim()) {
@@ -158,7 +157,7 @@ export default function RoutinesRoute() {
       setDescriptionInput('');
       setEditingRoutineId(null);
     } catch (error) {
-      showAlert('Erro de Conexão', 'Falha ao salvar as modificações da rotina.', 'error');
+      showAlert('Erro de Conexão', 'Falha ao salvar as modificações do treino.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +167,7 @@ export default function RoutinesRoute() {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.screenTitle}>📋 Suas Rotinas</Text>
+          <Text style={styles.screenTitle}>📋 Seus Treinos</Text>
           <Text style={styles.subtitle}>Toque para abrir. Segure para opções.</Text>
         </View>
         <TouchableOpacity style={styles.addButton} onPress={handleOpenCreateModal} activeOpacity={0.7}>
@@ -181,7 +180,7 @@ export default function RoutinesRoute() {
         keyExtractor={(item) => String(item.treNrId)}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={<Text style={styles.emptyText}>Nenhuma rotina cadastrada no banco Go.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>Nenhum treino cadastrado no banco Go.</Text>}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.routineCard}
@@ -204,38 +203,45 @@ export default function RoutinesRoute() {
         )}
       />
 
-      {/* Modal  de Criação / Edição */}
+      {/* Modal de Criação / Edição */}
       <Modal visible={isModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingRoutineId ? 'Editar Bloco de Treino' : 'Novo Bloco de Treino'}</Text>
-              <TouchableOpacity onPress={() => setIsModalVisible(false)}>
-                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            style={{ width: '100%' }}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{editingRoutineId ? 'Editar Bloco de Treino' : 'Novo Bloco de Treino'}</Text>
+                <TouchableOpacity onPress={() => setIsModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <Input 
+                  label="Nome do Bloco" 
+                  placeholder="Ex: Treino A" 
+                  value={nameInput} 
+                  onChangeText={setNameInput} 
+                />
+                
+                <Input 
+                  label="Grupos Musculares / Descrição" 
+                  placeholder="Ex: Peito, Tríceps e Ombro" 
+                  value={descriptionInput} 
+                  onChangeText={setDescriptionInput} 
+                />
+                
+                <Button 
+                  title={editingRoutineId ? "Salvar Alterações" : "Criar Treino"} 
+                  isLoading={isLoading} 
+                  onPress={handleSaveRoutine} 
+                  style={styles.modalButton} 
+                />
+              </ScrollView>
             </View>
-            
-            <Input 
-              label="Nome do Bloco" 
-              placeholder="Ex: Treino A" 
-              value={nameInput} 
-              onChangeText={setNameInput} 
-            />
-            
-            <Input 
-              label="Grupos Musculares / Descrição" 
-              placeholder="Ex: Peito, Tríceps e Ombro" 
-              value={descriptionInput} 
-              onChangeText={setDescriptionInput} 
-            />
-            
-            <Button 
-              title={editingRoutineId ? "Salvar Alterações" : "Criar Rotina"} 
-              isLoading={isLoading} 
-              onPress={handleSaveRoutine} 
-              style={styles.modalButton} 
-            />
-          </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -267,7 +273,7 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500' },
   emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.spacing.xl },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: theme.colors.surface, borderTopLeftRadius: theme.borderRadius.lg, borderTopRightRadius: theme.borderRadius.lg, padding: theme.spacing.lg, paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.xl, borderTopWidth: 1, borderTopColor: theme.colors.surfaceLight },
+  modalContent: { backgroundColor: theme.colors.surface, borderTopLeftRadius: theme.borderRadius.lg, borderTopRightRadius: theme.borderRadius.lg, padding: theme.spacing.lg, paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.xl, borderTopWidth: 1, borderTopColor: theme.colors.surfaceLight, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.lg },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
   modalButton: { marginTop: theme.spacing.sm },

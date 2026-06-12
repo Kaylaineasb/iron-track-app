@@ -29,7 +29,7 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* Aba de Rotinas (Listagem) */}
+      {/* Aba de Treinos (Listagem) */}
       <Tabs.Screen
         name="routines/index"
         options={{

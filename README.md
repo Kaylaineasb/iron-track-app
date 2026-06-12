@@ -9,8 +9,8 @@ Este repositório contém exclusivamente a camada de **Front-end / Mobile** do p
 ## 🚀 Funcionalidades Principais
 
 * **Autenticação Segura:** Fluxo de acesso otimizado com retenção de sessão local.
-* **Dashboard Inteligente:** Visualização rápida do treino do dia atual e atalhos de rotina.
-* **Gestão de Rotinas:** Criação, edição e listagem de blocos de treinos customizados.
+* **Dashboard Inteligente:** Visualização rápida do treino do dia atual e atalhos de treino.
+* **Gestão de Treinos:** Criação, edição e listagem de blocos de treinos customizados.
 * **Modo Execução (Foco):** Tela otimizada para a academia com cronômetro de descanso integrado e input rápido de progressão de carga (séries e pesos).
 * **Evolução Corporal:** Registro mensal de medidas antropométricas e peso com visualização de histórico.
 

@@ -13,7 +13,7 @@ interface DisplaySummary {
   nextWorkout: string;
   nextWorkoutFocus: string;
   lastWeight: string;
-  lastArm: string;
+  lastHeight: string;
   lastUpdate: string;
 }
 
@@ -25,9 +25,9 @@ export default function HomeScreen() {
 
   const [summary, setSummary] = useState<DisplaySummary>({
     nextWorkout: 'Nenhum Treino',
-    nextWorkoutFocus: 'Cadastre um treino nas rotinas',
+    nextWorkoutFocus: 'Cadastre um treino',
     lastWeight: '-- kg',
-    lastArm: '-- cm',
+    lastHeight: '-- m',
     lastUpdate: '--/--/----'
   });
 
@@ -43,14 +43,12 @@ export default function HomeScreen() {
     }
   }, [isFocused]);
 
-  // Formata a data ISO do Go para o padrão brasileiro visual
   const formatDate = (isoString?: string) => {
     if (!isoString) return '--/--/----';
     return new Date(isoString).toLocaleDateString('pt-BR');
   };
 
   const loadHomeData = async () => {
-    // 1. Carrega o nome do usuário salvo no SecureStore
     const savedName = await SecureStore.getItemAsync('user_name');
     if (savedName) {
       const firstName = savedName.trim().split(' ')[0];
@@ -60,16 +58,14 @@ export default function HomeScreen() {
     setIsMetricsLoading(true);
 
     try {
-      // 2. Busca assincronamente as rotinas locais e a medição mais recente do Backend Go
       const [savedRoutines, workoutLogs, latestMetric] = await Promise.all([
         storageService.getRoutines(),
         storageService.getWorkoutLogs(),
-        evolutionService.getLatest() // <-- MUDANÇA AQUI: Consumindo o banco Go
+        evolutionService.getLatest()
       ]);
 
-      // Lógica de cálculo do próximo treino da fila (mantida intocada)
       let nextWorkoutName = 'Nenhum Treino';
-      let nextWorkoutDescription = 'Cadastre um treino nas rotinas';
+      let nextWorkoutDescription = 'Cadastre um treino';
 
       if (savedRoutines && savedRoutines.length > 0) {
         if (workoutLogs && workoutLogs.length > 0) {
@@ -90,9 +86,8 @@ export default function HomeScreen() {
         }
       }
 
-      // 3. Processa a resposta da biometria dinâmica vinda do Go
       let currentWeight = '-- kg';
-      let currentArm = '-- cm';
+      let currentHeight = '-- m';
       let currentUpdateDate = '--/--/----';
 
       if (latestMetric) {
@@ -100,11 +95,8 @@ export default function HomeScreen() {
           currentWeight = `${latestMetric.evoNrPeso} kg`;
         }
         
-        // Verifica as propriedades de ponteiro do braço direito ou esquerdo
-        if (latestMetric.evoNrBracoDireito !== null && latestMetric.evoNrBracoDireito !== undefined) {
-          currentArm = `${latestMetric.evoNrBracoDireito} cm`;
-        } else if (latestMetric.evoNrBracoEsquerdo !== null && latestMetric.evoNrBracoEsquerdo !== undefined) {
-          currentArm = `${latestMetric.evoNrBracoEsquerdo} cm`;
+        if (latestMetric.evoNrAltura) {
+          currentHeight = `${latestMetric.evoNrAltura} m`;
         }
 
         currentUpdateDate = formatDate(latestMetric.evoDtData);
@@ -114,7 +106,7 @@ export default function HomeScreen() {
         nextWorkout: nextWorkoutName,
         nextWorkoutFocus: nextWorkoutDescription,
         lastWeight: currentWeight,
-        lastArm: currentArm,
+        lastHeight: currentHeight,
         lastUpdate: currentUpdateDate
       });
 
@@ -178,12 +170,12 @@ export default function HomeScreen() {
           activeOpacity={0.8}
           onPress={() => router.push('/(tabs)/routines')}
         >
-          <Text style={styles.actionButtonText}>Ir para Rotinas</Text>
+          <Text style={styles.actionButtonText}>Ir para Treinos</Text>
           <Ionicons name="arrow-forward" size={16} color={theme.colors.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Card da Última Medição Atualizado */}
+      {/* Card da Última Medição  */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <View style={styles.iconWrapperSuccess}>
@@ -204,8 +196,8 @@ export default function HomeScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statBox}>
-            <Text style={styles.statLabel}>Braço</Text>
-            <Text style={styles.statValue}>{summary.lastArm}</Text>
+            <Text style={styles.statLabel}>Altura</Text>
+            <Text style={styles.statValue}>{summary.lastHeight}</Text>
           </View>
         </View>
 
