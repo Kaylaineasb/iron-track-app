@@ -82,8 +82,14 @@ export default function EvolutionRoute() {
   };
 
   const handleInputChange = (field: keyof typeof form, value: string) => {
-    const sanitizedValue = value.replace(',', '.');
-    setForm(prev => ({ ...prev, [field]: sanitizedValue }));
+    let sanitized = value.replace(/,/g, '.');
+    sanitized = sanitized.replace(/[^0-9.]/g, '');
+    const parts = sanitized.split('.');
+    if (parts.length > 2) {
+      sanitized = parts[0] + '.' + parts.slice(1).join('');
+    }
+
+    setForm(prev => ({ ...prev, [field]: sanitized }));
   };
 
   const parseMeasurement = (val: string): number | null => {
