@@ -11,13 +11,12 @@ export interface SerieExecutadaPayload {
 
 export const serieService = {
   /**
-   * Salva uma série executada vinculada à sessão de hoje
+   * Registra uma série executada no servidor
    */
-  save: async (treNrId: number, payload: SerieExecutadaPayload): Promise<SerieExecutadaPayload> => {
-    const response = await api.post<SerieExecutadaPayload>(`/api/v1/series/${treNrId}`, payload);
+  save: async (treNrId: number, payload: SerieExecutadaPayload): Promise<{ sexNrId: number }> => {
+    const response = await api.post<{ sexNrId: number }>(`/api/v1/series/${treNrId}`, payload);
     return response.data;
   },
-
   /**
    * Desmarca uma série excluindo o registro do banco
    */

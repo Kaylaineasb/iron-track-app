@@ -9,11 +9,23 @@ export interface SessaoTreinoModel {
 
 export const sessionService = {
   /**
-   * Verifica se já existe uma sessão aberta para o treino selecionado na data de hoje
+   * Verifica se já existe uma sessão aberta hoje no servidor
    */
-  checkTodaySession: async (treNrId: number): Promise<{ setNrId: number; hasSession: boolean }> => {
-    const response = await api.get<{ setNrId: number; hasSession: boolean }>(`/api/v1/sessoes/${treNrId}`);
-    return response.data || { setNrId: 0, hasSession: false };
+  checkTodaySession: async (treNrId: number): Promise<{ setNrId: number | null; hasSession: boolean }> => {
+    try {
+      const response = await api.get<any>(`/api/v1/sessoes/ativas/${treNrId}`);
+      
+      if (response.data && response.data.setNrId) {
+        return {
+          setNrId: response.data.setNrId,
+          hasSession: true
+        };
+      }
+      return { setNrId: null, hasSession: false };
+    } catch (error) {
+      console.error('Erro ao checar sessão ativa:', error);
+      return { setNrId: null, hasSession: false };
+    }
   },
 
   /**

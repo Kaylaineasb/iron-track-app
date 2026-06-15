@@ -40,8 +40,6 @@ export function CustomAlert({
 
   const icon = getIcon();
 
-  const defaultButtons: AlertButton[] = buttons || [{ text: 'Ok', onPress: onClose }];
-
   return (
     <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -58,40 +56,46 @@ export function CustomAlert({
 
           {/* Renderização dinâmica dos botões */}
           <View style={styles.buttonsRow}>
-            {defaultButtons.map((btn, index) => {
-              const isDestructive = btn.style === 'destructive';
-              const isCancel = btn.style === 'cancel';
+            {buttons && buttons.length > 0 ? (
+              buttons.map((btn, index) => {
+                const isDestructive = btn.style === 'destructive';
+                const isCancel = btn.style === 'cancel';
 
-              const btnStyle = [
-                styles.button,
-                isDestructive && styles.btnDestructive,
-                isCancel && styles.btnCancel,
-              ];
-
-              const btnTextStyle = [
-                styles.btnText,
-                isDestructive && styles.textDestructive,
-                isCancel && styles.textCancel,
-              ];
-
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={btnStyle}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    onClose(); 
-                    if (btn.onPress) {
-                      setTimeout(() => {
-                        btn.onPress?.();
-                      }, 100);
-                    }
-                  }}
-                >
-                  <Text style={btnTextStyle}>{btn.text}</Text>
-                </TouchableOpacity>
-              );
-            })}
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.button,
+                      isDestructive && styles.btnDestructive,
+                      isCancel && styles.btnCancel,
+                    ]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      onClose();
+                      if (btn.onPress) {
+                        setTimeout(() => btn.onPress?.(), 100);
+                      }
+                    }}
+                  >
+                    <Text style={[
+                      styles.btnText,
+                      isDestructive && styles.textDestructive,
+                      isCancel && styles.textCancel,
+                    ]}>
+                      {btn.text}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })
+            ) : (
+              <TouchableOpacity
+                style={styles.button}
+                activeOpacity={0.7}
+                onPress={onClose}
+              >
+                <Text style={styles.btnText}>Ok</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>

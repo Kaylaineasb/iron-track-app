@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; 
-import { storageService } from '@/services/storageService';
 import { ExerciseSelect } from '@/core/components/ExerciseSelect';
 import { fichaService, FichaTreinoResponse, FichaTreinoPayload } from '@/services/fichaService';
 import { CustomExerciseModal } from '@/core/components/CustomExerciseModal';
@@ -82,9 +81,12 @@ export default function ExerciseScreen() {
     setIsCheckingSession(true);
     try {
       const sessionStatus = await sessionService.checkTodaySession(treNrIdNumeric);
-      if (sessionStatus.hasSession) {
+      if (sessionStatus.hasSession && sessionStatus.setNrId) {
         setActiveSessionId(sessionStatus.setNrId);
+      } else {
+        setActiveSessionId(null);
       }
+      
       await loadFichas();
     } catch (error) {
       console.error('Erro ao inicializar sessão de treino:', error);
@@ -144,7 +146,7 @@ export default function ExerciseScreen() {
     } else if (secondsLeft === 0 && isTimerRunning) {
       setIsTimerRunning(false);
       if (timerRef.current) clearInterval(timerRef.current);
-      showAlert('Descanso Acadêmico', 'Hora de esmagar a próxima série!', 'success');
+      showAlert('Descanso Acadêmico', 'Hora de esmagar a próxima série! 💪', 'success');
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isTimerRunning, secondsLeft]);
@@ -169,34 +171,108 @@ export default function ExerciseScreen() {
     setAlertVisible(true);
   };
 
-  const addSetInModal = () => {
-    setModalSets([...modalSets, { targetReps: '' }]);
+  const handleUpdateSetLog = (exerciseId: string, setId: string, field: 'doneReps' | 'doneWeight', value: string) => {
+    setExercises((prevExercises) =>
+      prevExercises.map((ex) => {
+        if (ex.id !== exerciseId) return ex;
+        return {
+          ...ex,
+          sets: ex.sets.map((set) => (set.id === setId ? { ...set, [field]: value } : set)),
+        };
+      })
+    );
   };
 
-  const removeSetInModal = (index: number) => {
-    if (modalSets.length === 1) return;
-    setModalSets(modalSets.filter((_, i) => i !== index));
-  };
-
-  const updateSetRepsInModal = (index: number, value: string) => {
-    const updated = [...modalSets];
-    updated[index].targetReps = value;
-    setModalSets(updated);
-  };
-
-  const handleToggleParentSelection = (exerciseId: string) => {
-    if (exerciseId === '') {
-      setSelectedParentIds([]);
+  const handleToggleSetDone = async (exerciseId: string, setId: string) => {
+    if (!activeSessionId) {
+      showAlert('Atenção', 'Inicie a sessão de treino antes de marcar as séries.', 'warning');
       return;
     }
 
-    setSelectedParentIds((prev) => {
-      if (prev.includes(exerciseId)) {
-        return prev.filter(id => id !== exerciseId);
+    const currentExercise = exercises.find(ex => ex.id === exerciseId);
+    if (!currentExercise) return;
+
+    const targetSet = currentExercise.sets.find(s => s.id === setId);
+    if (!targetSet) return;
+
+    const isMarkingAsDone = !targetSet.isDone;
+
+    try {
+      if (isMarkingAsDone) {
+        const repsFeitas = targetSet.doneReps.trim() || targetSet.targetReps;
+        const pesoUtilizado = parseFloat(targetSet.doneWeight) || 0.0;
+
+        const payload: SerieExecutadaPayload = {
+          setNrId: activeSessionId,
+          fitNrId: Number(exerciseId), 
+          sexNrSerieNumero: targetSet.setNumber,
+          sexTxRepeticoesExecutadas: String(repsFeitas),
+          sexNrPesoUtilizado: pesoUtilizado
+        };
+
+        const response = await serieService.save(treNrIdNumeric, payload);
+
+        let shouldStartTimer = false;
+        if (!currentExercise.groupId) {
+          shouldStartTimer = true;
+        } else {
+          const groupExercises = exercises.filter(ex => ex.groupId === currentExercise.groupId);
+          const lastExerciseInGroup = groupExercises[groupExercises.length - 1];
+          if (currentExercise.id === lastExerciseInGroup.id) {
+            shouldStartTimer = true;
+          }
+        }
+        if (shouldStartTimer) startTimer(60);
+
+        setExercises(prev => prev.map(ex => {
+          if (ex.id !== exerciseId) return ex;
+          return {
+            ...ex,
+            sets: ex.sets.map(s => s.id === setId ? { ...s, isDone: true, sexNrId: response.sexNrId } : s)
+          };
+        }));
+
       } else {
-        return [...prev, exerciseId];
+        if (targetSet.sexNrId) {
+          await serieService.delete(targetSet.sexNrId);
+        }
+        setExercises(prev => prev.map(ex => {
+          if (ex.id !== exerciseId) return ex;
+          return {
+            ...ex,
+            sets: ex.sets.map(s => s.id === setId ? { ...s, isDone: false, sexNrId: undefined } : s)
+          };
+        }));
       }
-    });
+
+    } catch (error) {
+      showAlert('Erro de Sincronização', 'Não foi possível salvar o status da série no servidor.', 'error');
+    }
+  };
+
+  const handleFinishWorkout = async () => {
+    if (!activeSessionId) {
+      showAlert('Atenção', 'Nenhuma sessão ativa encontrada para finalizar.', 'warning');
+      return;
+    }
+
+    setIsFinishing(true);
+    try {
+      await sessionService.finishSession(activeSessionId);
+      setActiveSessionId(null);
+
+      showAlert(
+        'Treino Concluído!', 
+        'Sua sessão foi encerrada com sucesso no servidor Go.', 
+        'success',
+        [{ text: 'Excelente!', onPress: () => router.push('/(tabs)/routines') }]
+      );
+    } catch (error: any) {
+      const msg = error.response?.data?.erro || 'Não foi possível encerrar sua sessão no servidor.';
+      showAlert('Falha ao Finalizar', msg, 'error');
+    } finally {
+      setIsFinishing(false);
+    }
   };
 
   const handleAddExerciseToFicha = async () => {
@@ -283,127 +359,33 @@ export default function ExerciseScreen() {
     }
   };
 
-  const handleUpdateSetLog = (exerciseId: string, setId: string, field: 'doneReps' | 'doneWeight', value: string) => {
-    setExercises((prevExercises) =>
-      prevExercises.map((ex) => {
-        if (ex.id !== exerciseId) return ex;
-        return {
-          ...ex,
-          sets: ex.sets.map((set) => (set.id === setId ? { ...set, [field]: value } : set)),
-        };
-      })
-    );
+  const addSetInModal = () => {
+    setModalSets([...modalSets, { targetReps: '' }]);
   };
 
-  const handleToggleSetDone = async (exerciseId: string, setId: string) => {
-    if (!activeSessionId) {
-      showAlert('Atenção', 'Inicie a sessão de treino antes de marcar as séries.', 'warning');
+  const removeSetInModal = (index: number) => {
+    if (modalSets.length === 1) return;
+    setModalSets(modalSets.filter((_, i) => i !== index));
+  };
+
+  const updateSetRepsInModal = (index: number, value: string) => {
+    const updated = [...modalSets];
+    updated[index].targetReps = value;
+    setModalSets(updated);
+  };
+
+  const handleToggleParentSelection = (exerciseId: string) => {
+    if (exerciseId === '') {
+      setSelectedParentIds([]);
       return;
     }
-
-    const currentExercise = exercises.find(ex => ex.id === exerciseId);
-    if (!currentExercise) return;
-
-    const targetSet = currentExercise.sets.find(s => s.id === setId);
-    if (!targetSet) return;
-
-    const isMarkingAsDone = !targetSet.isDone;
-
-    try {
-      if (isMarkingAsDone) {
-        const repsFeitas = targetSet.doneReps.trim() || targetSet.targetReps;
-        const pesoUtilizado = parseFloat(targetSet.doneWeight) || 0.0;
-
-        const payload: SerieExecutadaPayload = {
-          setNrId: activeSessionId,
-          fitNrId: Number(exerciseId), 
-          sexNrSerieNumero: targetSet.setNumber,
-          sexTxRepeticoesExecutadas: String(repsFeitas),
-          sexNrPesoUtilizado: pesoUtilizado
-        };
-
-        const response = await serieService.save(treNrIdNumeric, payload);
-
-        let shouldStartTimer = false;
-        if (!currentExercise.groupId) {
-          shouldStartTimer = true;
-        } else {
-          const groupExercises = exercises.filter(ex => ex.groupId === currentExercise.groupId);
-          const lastExerciseInGroup = groupExercises[groupExercises.length - 1];
-          if (currentExercise.id === lastExerciseInGroup.id) {
-            shouldStartTimer = true;
-          }
-        }
-        if (shouldStartTimer) startTimer(60);
-        setExercises(prev => prev.map(ex => {
-          if (ex.id !== exerciseId) return ex;
-          return {
-            ...ex,
-            sets: ex.sets.map(s => s.id === setId ? { ...s, isDone: true, sexNrId: response.sexNrId } : s)
-          };
-        }));
-
+    setSelectedParentIds((prev) => {
+      if (prev.includes(exerciseId)) {
+        return prev.filter(id => id !== exerciseId);
       } else {
-        if (targetSet.sexNrId) {
-          await serieService.delete(targetSet.sexNrId);
-        }
-        setExercises(prev => prev.map(ex => {
-          if (ex.id !== exerciseId) return ex;
-          return {
-            ...ex,
-            sets: ex.sets.map(s => s.id === setId ? { ...s, isDone: false, sexNrId: undefined } : s)
-          };
-        }));
+        return [...prev, exerciseId];
       }
-
-    } catch (error) {
-      showAlert('Erro de Sincronização', 'Não foi possível salvar o status da série no servidor.', 'error');
-    }
-  };
-
-  const handleFinishWorkout = async () => {
-    if (!activeSessionId) {
-      showAlert('Atenção', 'Nenhuma sessão activa encontrada para finalizar.', 'warning');
-      return;
-    }
-
-    setIsFinishing(true);
-    
-    const workoutLog = {
-      id: Math.random().toString(),
-      routineId: id,
-      routineName: name,
-      date: new Date().toLocaleDateString('pt-BR'),
-      exercises: exercises.map((ex) => ({
-        name: ex.name,
-        sets: ex.sets.filter(s => s.isDone).map((s) => ({
-          setNumber: s.setNumber,
-          reps: s.doneReps || s.targetReps,
-          weight: s.doneWeight || '0',
-        })),
-      })),
-    };
-
-    try {
-      await sessionService.finishSession(activeSessionId);
-
-      const existingLogs = await storageService.getWorkoutLogs() || [];
-      await storageService.saveWorkoutLog([workoutLog, ...existingLogs]);
-
-      setActiveSessionId(null);
-
-      showAlert(
-        'Treino Concluído!', 
-        'Sua sessão foi encerrada com sucesso no servidor Go e salva no histórico.', 
-        'success',
-        [{ text: 'Excelente!', onPress: () => router.push('/(tabs)/routines') }]
-      );
-    } catch (error: any) {
-      const msg = error.response?.data?.erro || 'Não foi possível encerrar sua sessão no servidor.';
-      showAlert('Falha ao Finalizar', msg, 'error');
-    } finally {
-      setIsFinishing(false);
-    }
+    });
   };
 
   const renderTimeDigits = () => {
@@ -477,22 +459,13 @@ export default function ExerciseScreen() {
           renderItem={({ item: exercise, index }) => {
             const nextExercise = exercises[index + 1];
             const isConjugadoComProximo = exercise.groupId && nextExercise && nextExercise.groupId === exercise.groupId;
-
             const prevExercise = exercises[index - 1];
             const isContinuaConjugado = exercise.groupId && prevExercise && prevExercise.groupId === exercise.groupId;
 
             const dynamicCardStyle = [
               styles.exerciseCard,
-              isConjugadoComProximo && {
-                marginBottom: 0,
-                borderBottomWidth: 0,
-                borderBottomLeftRadius: 0,
-                borderBottomRightRadius: 0,
-              },
-              isContinuaConjugado && {
-                borderTopLeftRadius: 0,
-                borderTopRightRadius: 0,
-              }
+              isConjugadoComProximo && { marginBottom: 0, borderBottomWidth: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+              isContinuaConjugado && { borderTopLeftRadius: 0, borderTopRightRadius: 0 }
             ];
 
             return (
@@ -506,7 +479,6 @@ export default function ExerciseScreen() {
                       </View>
                     )}
                   </View>
-                  
                   <TouchableOpacity onPress={() => handleDeleteExerciseTrigger(exercise.id, exercise.name)} activeOpacity={0.6} style={styles.deleteExerciseBtn}>
                     <Ionicons name="trash-outline" size={16} color={theme.colors.textMuted} />
                   </TouchableOpacity>

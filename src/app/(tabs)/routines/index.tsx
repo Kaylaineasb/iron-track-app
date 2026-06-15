@@ -167,7 +167,7 @@ export default function RoutinesRoute() {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.screenTitle}>📋 Seus Treinos</Text>
+          <Text style={styles.screenTitle}>Seus Treinos</Text>
           <Text style={styles.subtitle}>Toque para abrir. Segure para opções.</Text>
         </View>
         <TouchableOpacity style={styles.addButton} onPress={handleOpenCreateModal} activeOpacity={0.7}>
