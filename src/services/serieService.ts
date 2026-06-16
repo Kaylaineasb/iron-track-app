@@ -1,3 +1,4 @@
+import { SerieExecutadaDetalhada } from '@/core/types/historyTypes';
 import { api } from './api';
 
 export interface SerieExecutadaPayload {
@@ -22,5 +23,10 @@ export const serieService = {
    */
   delete: async (sexNrId: number): Promise<void> => {
     await api.delete(`/api/v1/series/${sexNrId}`);
+  },
+
+  getSessaoSeries: async (setNrId: number): Promise<SerieExecutadaDetalhada[]> => {
+    const response = await api.get<SerieExecutadaDetalhada[]>(`/api/v1/series/sessao/${setNrId}`);
+    return response.data;
   }
 };

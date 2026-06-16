@@ -11,29 +11,7 @@ import { fichaService, FichaTreinoResponse, FichaTreinoPayload } from '@/service
 import { CustomExerciseModal } from '@/core/components/CustomExerciseModal';
 import { sessionService } from '@/services/sessionService';
 import { SerieExecutadaPayload, serieService } from '@/services/serieService';
-
-interface SetMeta {
-  id: string;
-  setNumber: number;
-  targetReps: string;
-  doneReps: string;
-  doneWeight: string;
-  isDone: boolean;
-  sexNrId?: number;
-}
-
-interface Exercise {
-  id: string;
-  exeNrId: number;
-  name: string;
-  sets: SetMeta[];
-  groupId?: string;
-  fitNrOrdem: number;
-}
-
-interface ModalSetInput {
-  targetReps: string;
-}
+import { Exercise, SetMeta, ModalSetInput } from '@/core/types/exerciseTypes';
 
 export default function ExerciseScreen() {
   const router = useRouter();

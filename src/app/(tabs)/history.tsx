@@ -4,42 +4,17 @@ import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert';
-import { api } from '@/services/api';
 import { serieService } from '@/services/serieService';
-
-interface SessaoTreinoDetalhada {
-  setNrId: number;
-  treNrId: number;
-  treTxNome: string;
-  treTxDescricao?: string;
-  setDtData: string;
-  setTmHoraInicio: string;
-  setTmHoraFim?: string;
-}
-
-interface SerieExecutadaDetalhada {
-  sexNrId: number;
-  setNrId: number;
-  fitNrId: number;
-  sexNrSerieNumero: number;
-  sexNrPesoUtilizado: number;
-  sexTxRepeticoesExecutadas: string;
-  fitNrOrdem: number;
-  exeTxNome: string;
-}
-
-interface ExerciciosAgrupados {
-  nomeExercicio: string;
-  series: SerieExecutadaDetalhada[];
-}
-
-interface SectionData {
-  title: string;
-  data: SessaoTreinoDetalhada[];
-}
+import { sessionService } from '@/services/sessionService';
+import { 
+  SessaoTreinoDetalhada, 
+  SerieExecutadaDetalhada, 
+  ExerciciosAgrupados, 
+  SectionHistoryData 
+} from '@/core/types/historyTypes';
 
 export default function HistoryScreen() {
-  const [sections, setSections] = useState<SectionData[]>([]);
+  const [sections, setSections] = useState<SectionHistoryData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const isFocused = useIsFocused();
 
@@ -63,13 +38,13 @@ export default function HistoryScreen() {
   const loadWorkoutHistory = async () => {
     setIsLoading(true);
     try {
-      const response = await api.get<SessaoTreinoDetalhada[]>('/api/v1/sessoes');
-      if (response.data && response.data.length > 0) {
-        const grouped = groupLogsByMonth(response.data);
-        setSections(grouped);
-      } else {
-        setSections([]);
-      }
+      const data = await sessionService.getHistory();
+    if (data && data.length > 0) {
+      const grouped = groupLogsByMonth(data);
+      setSections(grouped);
+    } else {
+      setSections([]);
+    }
     } catch (error) {
       console.error('Erro ao buscar histórico do backend:', error);
       setSections([]);
@@ -78,7 +53,7 @@ export default function HistoryScreen() {
     }
   };
 
-  const groupLogsByMonth = (logs: SessaoTreinoDetalhada[]): SectionData[] => {
+  const groupLogsByMonth = (logs: SessaoTreinoDetalhada[]): SectionHistoryData[] => {
     const months = [
       'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -110,11 +85,11 @@ export default function HistoryScreen() {
     setModalSeries([]);
 
     try {
-      const response = await api.get<SerieExecutadaDetalhada[]>(`/api/v1/series/sessao/${sessao.setNrId}`);
+      const data = await serieService.getSessaoSeries(sessao.setNrId);
       
-      if (response.data) {
+      if (data && data.length > 0) {
         const agrupado: { [key: string]: SerieExecutadaDetalhada[] } = {};
-        response.data.forEach((serie) => {
+        data.forEach((serie) => {
           if (!agrupado[serie.exeTxNome]) agrupado[serie.exeTxNome] = [];
           agrupado[serie.exeTxNome].push(serie);
         });

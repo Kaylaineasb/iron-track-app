@@ -6,11 +6,7 @@ import { Button } from '@/core/components/Button';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { evolutionService, EvolucaoModel } from '@/services/evolutionService';
-
-interface SectionData {
-  title: string;
-  data: EvolucaoModel[];
-} 
+import { SectionData, EvolutionFormState } from '@/core/types/evolutionTypes';
 
 export default function EvolutionRoute() {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -24,7 +20,7 @@ export default function EvolutionRoute() {
   const [alertType, setAlertType] = useState<CustomAlertType>('info');
   const [alertButtons, setAlertButtons] = useState<AlertButton[]>([]);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<EvolutionFormState>({
     weight: '', height: '', shoulder: '', bust: '', abdomen: '',
     waist: '', quadril: '', armRight: '', armLeft: '', forearmRight: '',
     forearmLeft: '', thighRight: '', thighLeft: '', calfRight: '', calfLeft: ''

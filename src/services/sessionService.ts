@@ -1,3 +1,4 @@
+import { SessaoTreinoDetalhada } from '@/core/types/historyTypes';
 import { api } from './api';
 
 export interface SessaoTreinoModel {
@@ -46,5 +47,10 @@ export const sessionService = {
    */
   finishSession: async (setNrId: number): Promise<void> => {
     await api.put(`/api/v1/sessoes/${setNrId}`);
+  },
+
+  getHistory: async (): Promise<SessaoTreinoDetalhada[]> => {
+    const response = await api.get<SessaoTreinoDetalhada[]>('/api/v1/sessoes');
+    return response.data;
   }
 };

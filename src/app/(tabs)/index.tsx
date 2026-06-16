@@ -9,14 +9,7 @@ import { useIsFocused } from '@react-navigation/native';
 import * as SecureStore from 'expo-secure-store';
 import { evolutionService } from '@/services/evolutionService';
 import { workoutService } from '@/services/workoutService';
-
-interface DisplaySummary {
-  nextWorkout: string;
-  nextWorkoutFocus: string;
-  lastWeight: string;
-  lastHeight: string;
-  lastUpdate: string;
-}
+import { DisplaySummary } from '@/core/types/homeTypes';
 
 export default function HomeScreen() {
   const router = useRouter();
