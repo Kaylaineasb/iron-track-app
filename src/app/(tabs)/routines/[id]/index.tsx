@@ -83,7 +83,8 @@ export default function ExerciseScreen() {
           setNumber: index + 1,
           targetReps: repsArray[index] || repsArray[0] || '10',
           doneReps: '',
-          doneWeight: String(item.fitNrMetaPeso || ''),
+          doneWeight: '',
+          targetWeight: String(item.fitNrMetaPeso || '0'),
           isDone: false,
         }));
 
@@ -238,6 +239,7 @@ export default function ExerciseScreen() {
     try {
       await sessionService.finishSession(activeSessionId);
       setActiveSessionId(null);
+      await loadFichas();
 
       showAlert(
         'Treino Concluído!', 
@@ -488,7 +490,7 @@ export default function ExerciseScreen() {
                     <View style={{ width: 10 }} />
                     <View style={styles.flex1}>
                       <Input
-                        placeholder="0"
+                        placeholder={set.targetWeight || "0"}
                         keyboardType="numeric"
                         value={set.doneWeight}
                         editable={!set.isDone && !hasNoActiveSession}

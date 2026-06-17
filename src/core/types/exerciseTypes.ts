@@ -6,6 +6,7 @@ export interface SetMeta {
   doneWeight: string;
   isDone: boolean;
   sexNrId?: number;
+  targetWeight?: string;
 }
 
 export interface Exercise {
