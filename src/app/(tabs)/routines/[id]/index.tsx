@@ -7,7 +7,7 @@ import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; 
 import { ExerciseSelect } from '@/core/components/ExerciseSelect';
-import { fichaService, FichaTreinoResponse, FichaTreinoPayload } from '@/services/fichaService';
+import { fichaService, FichaTreinoPayload } from '@/services/fichaService';
 import { CustomExerciseModal } from '@/core/components/CustomExerciseModal';
 import { sessionService } from '@/services/sessionService';
 import { SerieExecutadaPayload, serieService } from '@/services/serieService';
@@ -20,7 +20,7 @@ export default function ExerciseScreen() {
   const treNrIdNumeric = Number(id);
   const [metaPesoInput, setMetaPesoInput] = useState('0');
 
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [exercises, setExercises] = useState<any[]>([]);
   const [isFinishing, setIsFinishing] = useState(false);
 
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
@@ -73,32 +73,46 @@ export default function ExerciseScreen() {
     }
   };
 
+  const showAlert = (title: string, message: string, type: CustomAlertType, buttons?: AlertButton[]) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertType(type);
+    setAlertButtons(buttons || []);
+    setAlertVisible(true);
+  };
+
   const loadFichas = async () => {
     try {
-      const data: FichaTreinoResponse[] = await fichaService.getByTreinoId(treNrIdNumeric);
-      const mappedExercises: Exercise[] = data.map((item) => {
-        const repsArray = item.fitTxMetaRepeticoes.split('-');
-        const generatedSets: SetMeta[] = Array.from({ length: item.fitNrMetaSeries }).map((_, index) => ({
-          id: `${item.fitNrId}_set_${index + 1}`,
-          setNumber: index + 1,
-          targetReps: repsArray[index] || repsArray[0] || '10',
-          doneReps: '',
-          doneWeight: '',
-          targetWeight: String(item.fitNrMetaPeso || '0'),
-          isDone: false,
-        }));
+      // 🚀 CORREGIDO: Forçamos a tipagem como 'any' para evitar conflito com a definição antiga do service
+      const data: any = await fichaService.getByTreinoId(treNrIdNumeric);
+      const mappedExercises: any[] = [];
 
-        return {
-          id: String(item.fitNrId),
-          exeNrId: item.exeNrId,
-          name: item.exeTxNome,
-          sets: generatedSets,
-          groupId: item.fitNrGrupo ? String(item.fitNrGrupo) : undefined,
-          fitNrOrdem: item.fitNrOrdem,
-        };
+      data.forEach((bloco: any) => {
+        if (bloco.exercicios && Array.isArray(bloco.exercicios)) {
+          bloco.exercicios.forEach((item: any) => {
+            const generatedSets: SetMeta[] = Array.from({ length: item.fitNrMetaSeries }).map((_, index) => ({
+              id: `${item.fitNrId}_set_${index + 1}`,
+              setNumber: index + 1,
+              targetReps: item.fitTxMetaRepeticoes[index] || item.fitTxMetaRepeticoes[0] || '10',
+              doneReps: '',
+              doneWeight: '',
+              targetWeight: String(item.fitNrMetaPeso || '0'),
+              isDone: false,
+            }));
+
+            mappedExercises.push({
+              id: String(item.fitNrId),
+              exeNrId: item.exeNrId,
+              name: item.exeTxNome,
+              sets: generatedSets,
+              groupId: bloco.fitNrGrupo ? String(bloco.fitNrGrupo) : undefined,
+              fitNrOrdem: item.fitNrOrdem,
+            });
+          });
+        }
       });
 
-      setExercises(mappedExercises);
+      setExercises(mappedExercises.sort((a, b) => a.fitNrOrdem - b.fitNrOrdem));
     } catch (error) {
       showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor Go.', 'error');
     }
@@ -142,21 +156,13 @@ export default function ExerciseScreen() {
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
-  const showAlert = (title: string, message: string, type: CustomAlertType, buttons?: AlertButton[]) => {
-    setAlertTitle(title);
-    setAlertMessage(message);
-    setAlertType(type);
-    setAlertButtons(buttons || []);
-    setAlertVisible(true);
-  };
-
   const handleUpdateSetLog = (exerciseId: string, setId: string, field: 'doneReps' | 'doneWeight', value: string) => {
     setExercises((prevExercises) =>
       prevExercises.map((ex) => {
         if (ex.id !== exerciseId) return ex;
         return {
           ...ex,
-          sets: ex.sets.map((set) => (set.id === setId ? { ...set, [field]: value } : set)),
+          sets: ex.sets.map((set: SetMeta) => (set.id === setId ? { ...set, [field]: value } : set)),
         };
       })
     );
@@ -171,7 +177,7 @@ export default function ExerciseScreen() {
     const currentExercise = exercises.find(ex => ex.id === exerciseId);
     if (!currentExercise) return;
 
-    const targetSet = currentExercise.sets.find(s => s.id === setId);
+    const targetSet = currentExercise.sets.find((s: SetMeta) => s.id === setId);
     if (!targetSet) return;
 
     const isMarkingAsDone = !targetSet.isDone;
@@ -207,7 +213,7 @@ export default function ExerciseScreen() {
           if (ex.id !== exerciseId) return ex;
           return {
             ...ex,
-            sets: ex.sets.map(s => s.id === setId ? { ...s, isDone: true, sexNrId: response.sexNrId } : s)
+            sets: ex.sets.map((s: SetMeta) => s.id === setId ? { ...s, isDone: true, sexNrId: response.sexNrId } : s)
           };
         }));
 
@@ -219,7 +225,7 @@ export default function ExerciseScreen() {
           if (ex.id !== exerciseId) return ex;
           return {
             ...ex,
-            sets: ex.sets.map(s => s.id === setId ? { ...s, isDone: false, sexNrId: undefined } : s)
+            sets: ex.sets.map((s: SetMeta) => s.id === setId ? { ...s, isDone: false, sexNrId: undefined } : s)
           };
         }));
       }
@@ -278,13 +284,13 @@ export default function ExerciseScreen() {
           } else {
             const novoGrupoId = Math.floor(1000 + Math.random() * 9000);
             fitNrGrupoFinal = novoGrupoId;
-            const updateParentPayload: FichaTreinoPayload = {
+            const updateParentPayload: any = {
               fitNrId: Number(parentExercise.id),
               treNrId: treNrIdNumeric,
               exeNrId: parentExercise.exeNrId,
               fitNrOrdem: parentExercise.fitNrOrdem,
               fitNrMetaSeries: parentExercise.sets.length,
-              fitTxMetaRepeticoes: parentExercise.sets.map(s => s.targetReps).join('-'),
+              fitTxMetaRepeticoes: parentExercise.sets.map((s: any) => s.targetReps).join('-'), // 🚀 CORRIGIDO: Tipagem inline explicita adicionada aqui
               fitNrMetaPeso: parseFloat(parentExercise.sets[0]?.doneWeight) || 0.0,
               fitNrGrupo: novoGrupoId
             };
@@ -473,7 +479,7 @@ export default function ExerciseScreen() {
                   <Text style={[styles.columnLabel, { width: 45, textAlign: 'center' }]}>Ok</Text>
                 </View>
 
-                {exercise.sets.map((set) => (
+                {exercise.sets.map((set: SetMeta) => (
                   <View key={set.id} style={[styles.setRow, set.isDone && styles.setRowDone, hasNoActiveSession && { opacity: 0.5 }]}>
                     <Text style={styles.setNumberText}>#{set.setNumber}</Text>
                     <Text style={styles.targetRepsText}>{set.targetReps} rp</Text>

@@ -10,12 +10,17 @@ export interface SetMeta {
 }
 
 export interface Exercise {
-  id: string;
-  exeNrId: number;
-  name: string;
-  sets: SetMeta[];
-  groupId?: string;
-  fitNrOrdem: number;
+  fitNrGrupo: number | null;
+  isConjugado: boolean;
+  exercicios: {
+    fitNrId: number;
+    exeNrId: number;
+    exeTxNome: string;
+    fitNrOrdem: number;
+    fitNrMetaSeries: number;
+    fitTxMetaRepeticoes: string[];
+    fitNrMetaPeso: number;
+  }[];
 }
 
 export interface ModalSetInput {
