@@ -1,36 +1,12 @@
+import { FichaTreinoPayload, FichaTreinoEstruturada } from '@/core/types/exerciseTypes';
 import { api } from './api';
-
-// Interface que espelha o payload de envio para o Go (model.FichaTreino)
-export interface FichaTreinoPayload {
-  fitNrId?: number;
-  treNrId: number;
-  exeNrId: number;
-  fitNrOrdem: number;
-  fitNrMetaSeries: number;
-  fitTxMetaRepeticoes: string;
-  fitNrMetaPeso: number;
-  fitNrGrupo?: number;
-}
-
-// Interface que espelha a resposta do Go (model.FichaTreinoResponse)
-export interface FichaTreinoResponse {
-  fitNrId: number;
-  treNrId: number;
-  exeNrId: number;
-  exeTxNome: string;
-  fitNrOrdem: number;
-  fitNrMetaSeries: number;
-  fitTxMetaRepeticoes: string;
-  fitNrMetaPeso: number;
-  fitNrGrupo?: number;
-}
 
 export const fichaService = {
   /**
    * Busca todas as fichas/exercícios associados a um treino específico
    */
-  getByTreinoId: async (treNrId: number): Promise<FichaTreinoResponse[]> => {
-    const response = await api.get<FichaTreinoResponse[]>(`/api/v1/fichas/treino/${treNrId}`);
+  getByTreinoId: async (treNrId: number): Promise<FichaTreinoEstruturada[]> => {
+    const response = await api.get<FichaTreinoEstruturada[]>(`/api/v1/fichas/treino/${treNrId}`);
     return response.data || [];
   },
 

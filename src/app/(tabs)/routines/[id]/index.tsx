@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform, ScrollView, KeyboardAvoidingView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Modal, Platform, ScrollView, KeyboardAvoidingView, ActivityIndicator, Switch } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,11 +7,11 @@ import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; 
 import { ExerciseSelect } from '@/core/components/ExerciseSelect';
-import { fichaService, FichaTreinoPayload } from '@/services/fichaService';
+import { fichaService } from '@/services/fichaService';
 import { CustomExerciseModal } from '@/core/components/CustomExerciseModal';
 import { sessionService } from '@/services/sessionService';
 import { SerieExecutadaPayload, serieService } from '@/services/serieService';
-import { Exercise, SetMeta, ModalSetInput } from '@/core/types/exerciseTypes';
+import { SetMeta, ModalSetInput, FichaTreinoPayload } from '@/core/types/exerciseTypes';
 
 export default function ExerciseScreen() {
   const router = useRouter();
@@ -19,6 +19,7 @@ export default function ExerciseScreen() {
   
   const treNrIdNumeric = Number(id);
   const [metaPesoInput, setMetaPesoInput] = useState('0');
+  const [isDropSetInput, setIsDropSetInput] = useState(false);
 
   const [exercises, setExercises] = useState<any[]>([]);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -83,36 +84,51 @@ export default function ExerciseScreen() {
 
   const loadFichas = async () => {
     try {
-      // 🚀 CORREGIDO: Forçamos a tipagem como 'any' para evitar conflito com a definição antiga do service
       const data: any = await fichaService.getByTreinoId(treNrIdNumeric);
       const mappedExercises: any[] = [];
 
-      data.forEach((bloco: any) => {
-        if (bloco.exercicios && Array.isArray(bloco.exercicios)) {
-          bloco.exercicios.forEach((item: any) => {
-            const generatedSets: SetMeta[] = Array.from({ length: item.fitNrMetaSeries }).map((_, index) => ({
-              id: `${item.fitNrId}_set_${index + 1}`,
-              setNumber: index + 1,
-              targetReps: item.fitTxMetaRepeticoes[index] || item.fitTxMetaRepeticoes[0] || '10',
-              doneReps: '',
-              doneWeight: '',
-              targetWeight: String(item.fitNrMetaPeso || '0'),
-              isDone: false,
-            }));
+      data.forEach((bloco: any, blocoIdx: number) => {
+        if (bloco.Exercicios && Array.isArray(bloco.Exercicios)) {
+          bloco.Exercicios.forEach((item: any) => {
+            
+            const quantidadeDeSeries = bloco.fitNrMetaSeries;
+
+            const generatedSets: SetMeta[] = Array.from({ length: quantidadeDeSeries }).map((_, index) => {
+              const repsDoBanco = item.fitTxMetaRepeticoes?.[0] || '10';
+              
+              const textoMetaRepeticoes = item.fitBlDropSet || repsDoBanco.includes('-')
+                ? repsDoBanco 
+                : (item.fitTxMetaRepeticoes[index] || item.fitTxMetaRepeticoes[0] || '10');
+
+              const pesoFormatado = !item.fitNrMetaPeso || item.fitNrMetaPeso === 0 || item.fitNrMetaPeso === 0.01
+                ? '' 
+                : String(item.fitNrMetaPeso);
+
+              return {
+                id: `${item.fitNrId}_set_${index + 1}`,
+                setNumber: index + 1,
+                targetReps: textoMetaRepeticoes, 
+                doneReps: '',
+                doneWeight: '',
+                targetWeight: pesoFormatado,
+                isDone: false,
+              };
+            });
 
             mappedExercises.push({
               id: String(item.fitNrId),
               exeNrId: item.exeNrId,
               name: item.exeTxNome,
               sets: generatedSets,
-              groupId: bloco.fitNrGrupo ? String(bloco.fitNrGrupo) : undefined,
-              fitNrOrdem: item.fitNrOrdem,
+              groupId: bloco.isConjudado ? `grupo_${blocoIdx}` : undefined,
+              isDropSet: item.fitBlDropSet,
+              fitNrOrdem: mappedExercises.length + 1
             });
           });
         }
       });
 
-      setExercises(mappedExercises.sort((a, b) => a.fitNrOrdem - b.fitNrOrdem));
+      setExercises(mappedExercises);
     } catch (error) {
       showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor Go.', 'error');
     }
@@ -182,9 +198,20 @@ export default function ExerciseScreen() {
 
     const isMarkingAsDone = !targetSet.isDone;
 
+    if (isMarkingAsDone) {
+      if (!targetSet.doneReps.trim()) {
+        showAlert('Campo Obrigatório', 'Por favor, informe a quantidade de repetições executadas.', 'warning');
+        return;
+      }
+      if (!targetSet.doneWeight.trim()) {
+        showAlert('Campo Obrigatório', 'Por favor, informe o peso utilizado para esta série.', 'warning');
+        return;
+      }
+    }
+
     try {
       if (isMarkingAsDone) {
-        const repsFeitas = targetSet.doneReps.trim() || targetSet.targetReps;
+        const repsFeitas = targetSet.doneReps.trim();
         const pesoUtilizado = parseFloat(targetSet.doneWeight) || 0.0;
 
         const payload: SerieExecutadaPayload = {
@@ -261,6 +288,14 @@ export default function ExerciseScreen() {
     }
   };
 
+  const resetCadastroForm = () => {
+    setNewExerciseName('');
+    setMetaPesoInput('0');
+    setIsDropSetInput(false);
+    setSelectedParentIds([]);
+    setModalSets([{ targetReps: '10' }]);
+  };
+
   const handleAddExerciseToFicha = async () => {
     if (!newExerciseName.trim()) {
       showAlert('Erro', 'Por favor, selecione ou digite o nome do exercício.', 'warning');
@@ -270,8 +305,16 @@ export default function ExerciseScreen() {
     setIsSavingExercise(true);
 
     try {
-      const fitTxMetaRepeticoes = modalSets.map(s => s.targetReps.trim() || '10').join('-');
-      const fitNrMetaSeries = modalSets.length;
+      let fitTxMetaRepeticoes = '';
+      let fitNrMetaSeries = 1;
+      if (isDropSetInput) {
+        fitTxMetaRepeticoes = modalSets[0]?.targetReps.trim() || '15-12-10';
+        fitNrMetaSeries = 1;
+      } else {
+        fitTxMetaRepeticoes = modalSets.map(s => s.targetReps.trim() || '10').join('-');
+        fitNrMetaSeries = modalSets.length;
+      }
+
       const nextOrdem = exercises.length > 0 ? Math.max(...exercises.map(e => e.fitNrOrdem)) + 1 : 1;
 
       let fitNrGrupoFinal: number | undefined = undefined;
@@ -280,24 +323,31 @@ export default function ExerciseScreen() {
 
         if (parentExercise) {
           if (parentExercise.groupId) {
-            fitNrGrupoFinal = Number(parentExercise.groupId);
+            fitNrGrupoFinal = Number(parentExercise.groupId.replace('grupo_', ''));
           } else {
-            const novoGrupoId = Math.floor(1000 + Math.random() * 9000);
-            fitNrGrupoFinal = novoGrupoId;
+            fitNrGrupoFinal = Math.floor(1000 + Math.random() * 9000);
+            
+            const totalSeriesPai = parentExercise.isDropSet 
+              ? parentExercise.sets.length 
+              : parentExercise.sets.length;
+
             const updateParentPayload: any = {
               fitNrId: Number(parentExercise.id),
               treNrId: treNrIdNumeric,
-              exeNrId: parentExercise.exeNrId,
+              exeNrId: Number(parentExercise.exeNrId || 0),
               fitNrOrdem: parentExercise.fitNrOrdem,
-              fitNrMetaSeries: parentExercise.sets.length,
-              fitTxMetaRepeticoes: parentExercise.sets.map((s: any) => s.targetReps).join('-'), // 🚀 CORRIGIDO: Tipagem inline explicita adicionada aqui
-              fitNrMetaPeso: parseFloat(parentExercise.sets[0]?.doneWeight) || 0.0,
-              fitNrGrupo: novoGrupoId
+              fitNrMetaSeries: totalSeriesPai,
+              fitTxMetaRepeticoes: parentExercise.sets.map((s: any) => s.targetReps).join('-'), 
+              fitNrMetaPeso: parseFloat(metaPesoInput) === 0 ? 0.01 : (parseFloat(metaPesoInput) || 0.01),
+              fitNrGrupo: fitNrGrupoFinal,
+              fitBlDropSet: !!parentExercise.isDropSet
             };
+            
             await fichaService.update(updateParentPayload);
           }
         }
       }
+
       const payload: FichaTreinoPayload = {
         treNrId: treNrIdNumeric,
         exeNrId: selectedExerciseId || Math.floor(1 + Math.random() * 100),
@@ -305,18 +355,21 @@ export default function ExerciseScreen() {
         fitNrMetaSeries: fitNrMetaSeries,
         fitTxMetaRepeticoes: fitTxMetaRepeticoes,
         fitNrMetaPeso: parseFloat(metaPesoInput) || 0.0,
-        fitNrGrupo: fitNrGrupoFinal
+        fitNrGrupo: fitNrGrupoFinal,
+        fitBlDropSet: isDropSetInput
       };
 
       await fichaService.create(payload);
       await loadFichas();
+      resetCadastroForm();
       setNewExerciseName('');
       setMetaPesoInput('0');
+      setIsDropSetInput(false);
       setSelectedParentIds([]);
       setModalSets([{ targetReps: '10' }]);
       setIsAddModalVisible(false);
     } catch (error: any) {
-      const msg = error.response?.data?.erro || 'Falha ao salvar a conjugação no servidor Go.';
+      const msg = error.response?.data?.erro || 'Falha ao salvar a ficha no servidor Go.';
       showAlert('Erro de Gravação', msg, 'error');
     } finally {
       setIsSavingExercise(false);
@@ -413,7 +466,7 @@ export default function ExerciseScreen() {
           <View style={styles.startSessionCard}>
             <Ionicons name="play-circle-outline" size={26} color={theme.colors.primary} />
             <Text style={styles.startSessionText}>Sua ficha está aberta para visualização. Inicie o treino de hoje para marcar as séries!</Text>
-            <Button title="🚀 Iniciar Treino de Hoje" isLoading={isStartingSession} onPress={handleStartWorkoutSession} style={{ width: '100%', marginTop: 4 }} />
+            <Button title="Iniciar Treino de Hoje" isLoading={isStartingSession} onPress={handleStartWorkoutSession} style={{ width: '100%', marginTop: 4 }} />
           </View>
         )}
 
@@ -459,6 +512,14 @@ export default function ExerciseScreen() {
                 <View style={styles.exerciseHeaderRow}>
                   <View style={styles.exerciseTitleBlock}>
                     <Text style={styles.exerciseName}>{exercise.name}</Text>
+                    
+                    {/* TAG VISUAL DO DROPSET */}
+                    {exercise.isDropSet && (
+                      <View style={styles.dropSetTag}>
+                        <Text style={styles.dropSetTagText}>DROP</Text>
+                      </View>
+                    )}
+
                     {exercise.groupId && (
                       <View style={styles.conjugadoTag}>
                         <Text style={styles.conjugadoTagText}>CONJUGADO</Text>
@@ -531,7 +592,7 @@ export default function ExerciseScreen() {
             <View style={styles.modalContentCenter}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Novo Exercício na Ficha</Text>
-                <TouchableOpacity onPress={() => setIsAddModalVisible(false)}>
+                <TouchableOpacity onPress={() => { resetCadastroForm(); setIsAddModalVisible(false); }}>
                   <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
               </View>
@@ -579,41 +640,72 @@ export default function ExerciseScreen() {
                   )}
                 </View>
 
+                {/* FORMULÁRIO DE SELEÇÃO DO DROP-SET */}
+                <View style={styles.dropSetToggleContainer}>
+                  <Text style={styles.dropdownLabel}>Este exercício possui Drop-Set?</Text>
+                  <Switch
+                    value={isDropSetInput}
+                    onValueChange={(val) => {
+                      setIsDropSetInput(val);
+                      setModalSets([{ targetReps: val ? '15-12-10' : '10' }]);
+                    }}
+                    trackColor={{ false: theme.colors.surfaceLight, true: theme.colors.primary }}
+                    thumbColor={isDropSetInput ? '#fff' : theme.colors.textMuted}
+                  />
+                </View>
+
                 <View style={{ marginTop: theme.spacing.sm }}>
                   <Input label="Meta de Carga Inicial (kg)" placeholder="Ex: 20" keyboardType="numeric" value={metaPesoInput} onChangeText={setMetaPesoInput} />
                 </View>
 
-                <View style={styles.modalSetsSectionHeader}>
-                  <Text style={styles.modalSetsSectionTitle}>Definir Metas das Séries</Text>
-                  <TouchableOpacity style={styles.addSetButton} onPress={addSetInModal} activeOpacity={0.7}>
-                    <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
-                    <Text style={styles.addSetButtonText}>Série</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.modalColumnTitleRow}>
-                  <Text style={styles.modalColumnTitleNumber}>#</Text>
-                  <Text style={styles.modalColumnTitleLabel}>Meta de Repetições (Reps)</Text>
-                </View>
-
-                <View style={styles.modalSetsContainer}>
-                  {modalSets.map((set, index) => (
-                    <View key={index} style={styles.modalSetRow}>
-                      <Text style={styles.modalSetNumberLabel}>#{index + 1}</Text>
-                      <View style={styles.flex1}>
-                        <Input placeholder="Ex: 10" keyboardType="default" value={set.targetReps} onChangeText={(val) => updateSetRepsInModal(index, val)} />
-                      </View>
-                      {modalSets.length > 1 && (
-                        <TouchableOpacity style={styles.removeSetRowBtn} onPress={() => removeSetInModal(index)}>
-                          <Ionicons name="remove-circle-outline" size={22} color={theme.colors.primary} />
-                        </TouchableOpacity>
-                      )}
+                {isDropSetInput ? (
+                  <View style={{ marginTop: theme.spacing.md }}>
+                    <Text style={styles.dropdownLabel}>Sequência do Drop (Separada por hifens)</Text>
+                    <Input 
+                      placeholder="Ex: 15-12-10" 
+                      keyboardType="default" 
+                      value={modalSets[0]?.targetReps || ''} 
+                      onChangeText={(val) => updateSetRepsInModal(0, val)} 
+                    />
+                    <Text style={{ fontSize: 11, color: theme.colors.textMuted, marginTop: 2 }}>
+                      Digite o número de repetições de cada redução separado por hífen.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.modalSetsSectionHeader}>
+                      <Text style={styles.modalSetsSectionTitle}>Definir Metas das Séries</Text>
+                      <TouchableOpacity style={styles.addSetButton} onPress={addSetInModal} activeOpacity={0.7}>
+                        <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
+                        <Text style={styles.addSetButtonText}>Série</Text>
+                      </TouchableOpacity>
                     </View>
-                  ))}
-                </View>
+
+                    <View style={styles.modalColumnTitleRow}>
+                      <Text style={styles.modalColumnTitleNumber}>#</Text>
+                      <Text style={styles.modalColumnTitleLabel}>Meta de Repetições (Reps)</Text>
+                    </View>
+
+                    <View style={styles.modalSetsContainer}>
+                      {modalSets.map((set, index) => (
+                        <View key={index} style={styles.modalSetRow}>
+                          <Text style={styles.modalSetNumberLabel}>#{index + 1}</Text>
+                          <View style={styles.flex1}>
+                            <Input placeholder="Ex: 10" keyboardType="default" value={set.targetReps} onChangeText={(val) => updateSetRepsInModal(index, val)} />
+                          </View>
+                          {modalSets.length > 1 && (
+                            <TouchableOpacity style={styles.removeSetRowBtn} onPress={() => removeSetInModal(index)}>
+                              <Ionicons name="remove-circle-outline" size={22} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                )}
               </ScrollView>
 
-              <Button title="Adicionar à Lista" isLoading={isSavingExercise} onPress={handleAddExerciseToFicha} style={styles.modalSubmitBtn} />
+              <Button title="Adicionar à Ficha" isLoading={isSavingExercise} onPress={handleAddExerciseToFicha} style={styles.modalSubmitBtn} />
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -670,6 +762,9 @@ const styles = StyleSheet.create({
   deleteExerciseBtn: { padding: 4, justifyContent: 'center', alignItems: 'center' },
   conjugadoTag: { backgroundColor: theme.colors.surfaceLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4, borderWidth: 0.5, borderColor: theme.colors.primary },
   conjugadoTagText: { fontSize: 10, fontWeight: 'bold', color: theme.colors.primary, letterSpacing: 0.5 },
+  dropSetTag: { backgroundColor: '#FF9500', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  dropSetTagText: { fontSize: 10, fontWeight: 'bold', color: '#fff' },
+  dropSetToggleContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: theme.spacing.sm, paddingRight: 4 },
   columnHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   columnLabel: { fontSize: 11, fontWeight: '600', color: theme.colors.textMuted },
   setRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: 12 },

@@ -9,20 +9,32 @@ export interface SetMeta {
   targetWeight?: string;
 }
 
-export interface Exercise {
-  fitNrGrupo: number | null;
-  isConjugado: boolean;
-  exercicios: {
-    fitNrId: number;
-    exeNrId: number;
-    exeTxNome: string;
-    fitNrOrdem: number;
-    fitNrMetaSeries: number;
-    fitTxMetaRepeticoes: string[];
-    fitNrMetaPeso: number;
-  }[];
+export interface ExercicioTreinoResponse {
+  fitNrId: number;
+  exeNrId: number;
+  exeTxNome: string;
+  fitNrMetaPeso: number;
+  fitTxMetaRepeticoes: string[];
+  fitBlDropSet: boolean;
+}
+
+export interface FichaTreinoEstruturada {
+  isConjudado: boolean;
+  fitNrMetaSeries: number;
+  Exercicios: ExercicioTreinoResponse[];
 }
 
 export interface ModalSetInput {
   targetReps: string;
+}
+
+export interface FichaTreinoPayload {
+  treNrId: number;
+  exeNrId: number;
+  fitNrOrdem: number;
+  fitNrMetaSeries: number;
+  fitTxMetaRepeticoes: string;
+  fitNrMetaPeso: number;
+  fitNrGrupo?: number;
+  fitBlDropSet: boolean;
 }
