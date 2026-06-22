@@ -13,6 +13,11 @@ export const api = axios.create({
 
 let isRefreshing = false;
 let refreshQueue: any[] = [];
+let onSessionExpiredCallback: (() => void) | null = null;
+
+export const registerSessionExpiredListener = (callback: () => void) => {
+  onSessionExpiredCallback = callback;
+};
 
 const processQueue = (error: any, token: string | null = null) => {
   refreshQueue.forEach((prom) => {
@@ -37,9 +42,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 api.interceptors.response.use(
@@ -96,6 +99,10 @@ api.interceptors.response.use(
         await SecureStore.deleteItemAsync('jwtToken');
         await SecureStore.deleteItemAsync('refreshToken');
         await SecureStore.deleteItemAsync('userName');
+
+        if (onSessionExpiredCallback) {
+          onSessionExpiredCallback();
+        }
 
         return Promise.reject(refreshError);
       }
