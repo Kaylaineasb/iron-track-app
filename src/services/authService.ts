@@ -1,25 +1,33 @@
 import { api } from './api';
 import * as SecureStore from 'expo-secure-store';
 
-interface AuthResponse {
-  jwtToken?: string;
+interface RegisterResponse {
   usuTxNome: string;
   usuTxEmail: string;
+}
+
+interface LoginResponse {
+  jwtToken: string;
+  usuTxNome: string;
+  usuTxRefreshToken: string;
 }
 
 export const authService = {
   /**
    * Envia as credenciais para o backend (JWTRequest)
    */
-  login: async (email: string, password: string): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/api/v1/login', {
+  login: async (email: string, password: string): Promise<LoginResponse> => {
+    const response = await api.post<LoginResponse>('/api/v1/login', {
       usuTxEmail: email.trim(),
       usuTxSenha: password,
     });
 
-    if (response.data && response.data.jwtToken) {
-      await SecureStore.setItemAsync('user_token', response.data.jwtToken);
-      await SecureStore.setItemAsync('user_name', response.data.usuTxNome);
+    const { jwtToken, usuTxRefreshToken, usuTxNome } = response.data;
+
+    if (jwtToken && usuTxRefreshToken) {
+      await SecureStore.setItemAsync('jwtToken', jwtToken);
+      await SecureStore.setItemAsync('refreshToken', usuTxRefreshToken);
+      await SecureStore.setItemAsync('userName', usuTxNome || '');
     }
 
     return response.data;
@@ -28,8 +36,8 @@ export const authService = {
   /**
    * Cadastra um novo usuário
    */
-  register: async (name: string, email: string, password: string): Promise<AuthResponse> => {
-    const response = await api.post<AuthResponse>('/api/v1/usuarios', {
+  register: async (name: string, email: string, password: string): Promise<RegisterResponse> => {
+    const response = await api.post<RegisterResponse>('/api/v1/usuarios', {
       usuTxNome: name.trim(),
       usuTxEmail: email.trim(),
       usuTxSenha: password,   
@@ -39,17 +47,19 @@ export const authService = {
   },
 
   /**
-   * Limpa o token do aparelho para efetuar o logout
+   * Limpa todos os tokens do aparelho para efetuar o logout completo
    */
   logout: async (): Promise<void> => {
-    await SecureStore.deleteItemAsync('user_token');
+    await SecureStore.deleteItemAsync('jwtToken');
+    await SecureStore.deleteItemAsync('refreshToken');
+    await SecureStore.deleteItemAsync('userName');
   },
 
   /**
-   * Verifica se o usuário possui uma sessão ativa
+   * Verifica se o usuário possui uma sessão ativa baseado na existência do JWT
    */
   isAuthenticated: async (): Promise<boolean> => {
-    const token = await SecureStore.getItemAsync('user_token');
+    const token = await SecureStore.getItemAsync('jwtToken');
     return !!token;
   }
 };

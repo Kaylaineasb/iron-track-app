@@ -36,7 +36,7 @@ export default function EvolutionRoute() {
       const data = await evolutionService.getAll();
       setHistory(data);
     } catch (error) {
-      showAlert('Erro', 'Não foi possível carregar o histórico de evolução do servidor Go.', 'error');
+      showAlert('Erro', 'Não foi possível carregar o histórico de evolução do servidor.', 'error');
     } finally {
       setIsFetching(false);
     }
@@ -135,7 +135,7 @@ export default function EvolutionRoute() {
       setIsExpanded(false);
       showAlert('Sucesso', 'Métricas corporais salvas com sucesso!', 'success');
     } catch (error: any) {
-      const msg = error.response?.data?.erro || 'Falha ao salvar medição no servidor Go.';
+      const msg = error.response?.data?.erro || 'Falha ao salvar medição no servidor.';
       showAlert('Erro', msg, 'error');
     } finally {
       setIsLoading(false);

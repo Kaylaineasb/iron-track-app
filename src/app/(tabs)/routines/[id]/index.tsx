@@ -130,7 +130,7 @@ export default function ExerciseScreen() {
 
       setExercises(mappedExercises);
     } catch (error) {
-      showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor Go.', 'error');
+      showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor.', 'error');
     }
   };
 
@@ -143,7 +143,7 @@ export default function ExerciseScreen() {
         showAlert('Treino Iniciado!', 'Sua sessão está ativa. Bom treino!', 'success');
       }
     } catch (error) {
-      showAlert('Erro', 'Não foi possível iniciar a sessão de treino no servidor Go.', 'error');
+      showAlert('Erro', 'Não foi possível iniciar a sessão de treino no servidor.', 'error');
     } finally {
       setIsStartingSession(false);
     }
@@ -276,7 +276,7 @@ export default function ExerciseScreen() {
 
       showAlert(
         'Treino Concluído!', 
-        'Sua sessão foi encerrada com sucesso no servidor Go.', 
+        'Seu treino foi concluido com sucesso.', 
         'success',
         [{ text: 'Excelente!', onPress: () => router.push('/(tabs)/routines') }]
       );
@@ -369,7 +369,7 @@ export default function ExerciseScreen() {
       setModalSets([{ targetReps: '10' }]);
       setIsAddModalVisible(false);
     } catch (error: any) {
-      const msg = error.response?.data?.erro || 'Falha ao salvar a ficha no servidor Go.';
+      const msg = error.response?.data?.erro || 'Falha ao salvar a ficha no servidor.';
       showAlert('Erro de Gravação', msg, 'error');
     } finally {
       setIsSavingExercise(false);

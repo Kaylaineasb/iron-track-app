@@ -40,7 +40,7 @@ export default function RoutinesRoute() {
       const data = await workoutService.getAll();
       setRoutines(data);
     } catch (error) {
-      showAlert('Erro', 'Não foi possível carregar os seus treinos do servidor Go.', 'error');
+      showAlert('Erro', 'Não foi possível carregar os seus treinos do servidor.', 'error');
     }
   };
 
