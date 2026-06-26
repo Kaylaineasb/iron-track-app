@@ -43,7 +43,7 @@ export default function HomeScreen() {
   };
 
   const loadHomeData = async () => {
-    const savedName = await SecureStore.getItemAsync('user_name');
+    const savedName = await SecureStore.getItemAsync('userName');
     if (savedName) {
       const firstName = savedName.trim().split(' ')[0];
       setUserName(firstName);
