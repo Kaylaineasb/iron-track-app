@@ -3,7 +3,7 @@ import { AppState, AppStateStatus, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { theme } from '@/core/theme/theme';
 import * as ScreenCapture from 'expo-screen-capture';
-import { registerSessionExpiredListener } from '@/services/api'; // 🚀 Ajuste o caminho correto para o seu arquivo api.ts
+import { registerSessionExpiredListener } from '@/services/api';
 
 export default function RootLayout() {
   const router = useRouter();

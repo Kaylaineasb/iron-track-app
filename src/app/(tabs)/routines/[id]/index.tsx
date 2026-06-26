@@ -327,9 +327,7 @@ export default function ExerciseScreen() {
           } else {
             fitNrGrupoFinal = Math.floor(1000 + Math.random() * 9000);
             
-            const totalSeriesPai = parentExercise.isDropSet 
-              ? parentExercise.sets.length 
-              : parentExercise.sets.length;
+            const totalSeriesPai = parentExercise.sets.length;
 
             const updateParentPayload: any = {
               fitNrId: Number(parentExercise.id),
@@ -362,11 +360,6 @@ export default function ExerciseScreen() {
       await fichaService.create(payload);
       await loadFichas();
       resetCadastroForm();
-      setNewExerciseName('');
-      setMetaPesoInput('0');
-      setIsDropSetInput(false);
-      setSelectedParentIds([]);
-      setModalSets([{ targetReps: '10' }]);
       setIsAddModalVisible(false);
     } catch (error: any) {
       const msg = error.response?.data?.erro || 'Falha ao salvar a ficha no servidor.';
