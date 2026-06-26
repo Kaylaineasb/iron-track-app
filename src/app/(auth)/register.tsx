@@ -50,9 +50,12 @@ export default function RegisterRoute() {
 
     try {
       await authService.register(name, email, password);
-      await authService.login(email, password);
-
       setIsLoading(false);
+      showAlert(
+        'Conta Criada!', 
+        'Seu cadastro foi realizado com sucesso. Faça login para acessar seus treinos.', 
+        'success'
+      );
       router.replace('/(tabs)');
     } catch (error: any) {
       setIsLoading(false);
