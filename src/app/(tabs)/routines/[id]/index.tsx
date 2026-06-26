@@ -5,7 +5,7 @@ import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/core/components/Input';
 import { Button } from '@/core/components/Button';
-import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert'; 
+import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert';
 import { ExerciseSelect } from '@/core/components/ExerciseSelect';
 import { fichaService } from '@/services/fichaService';
 import { CustomExerciseModal } from '@/core/components/CustomExerciseModal';
@@ -16,7 +16,7 @@ import { SetMeta, ModalSetInput, FichaTreinoPayload } from '@/core/types/exercis
 export default function ExerciseScreen() {
   const router = useRouter();
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
-  
+
   const treNrIdNumeric = Number(id);
   const [metaPesoInput, setMetaPesoInput] = useState('0');
   const [isDropSetInput, setIsDropSetInput] = useState(false);
@@ -65,7 +65,7 @@ export default function ExerciseScreen() {
       } else {
         setActiveSessionId(null);
       }
-      
+
       await loadFichas();
     } catch (error) {
       console.error('Erro ao inicializar sessão de treino:', error);
@@ -90,24 +90,24 @@ export default function ExerciseScreen() {
       data.forEach((bloco: any, blocoIdx: number) => {
         if (bloco.Exercicios && Array.isArray(bloco.Exercicios)) {
           bloco.Exercicios.forEach((item: any) => {
-            
+
             const quantidadeDeSeries = bloco.fitNrMetaSeries;
 
             const generatedSets: SetMeta[] = Array.from({ length: quantidadeDeSeries }).map((_, index) => {
               const repsDoBanco = item.fitTxMetaRepeticoes?.[0] || '10';
-              
+
               const textoMetaRepeticoes = item.fitBlDropSet || repsDoBanco.includes('-')
-                ? repsDoBanco 
+                ? repsDoBanco
                 : (item.fitTxMetaRepeticoes[index] || item.fitTxMetaRepeticoes[0] || '10');
 
               const pesoFormatado = !item.fitNrMetaPeso || item.fitNrMetaPeso === 0 || item.fitNrMetaPeso === 0.01
-                ? '' 
+                ? ''
                 : String(item.fitNrMetaPeso);
 
               return {
                 id: `${item.fitNrId}_set_${index + 1}`,
                 setNumber: index + 1,
-                targetReps: textoMetaRepeticoes, 
+                targetReps: textoMetaRepeticoes,
                 doneReps: '',
                 doneWeight: '',
                 targetWeight: pesoFormatado,
@@ -216,7 +216,7 @@ export default function ExerciseScreen() {
 
         const payload: SerieExecutadaPayload = {
           setNrId: activeSessionId,
-          fitNrId: Number(exerciseId), 
+          fitNrId: Number(exerciseId),
           sexNrSerieNumero: targetSet.setNumber,
           sexTxRepeticoesExecutadas: String(repsFeitas),
           sexNrPesoUtilizado: pesoUtilizado
@@ -275,8 +275,8 @@ export default function ExerciseScreen() {
       await loadFichas();
 
       showAlert(
-        'Treino Concluído!', 
-        'Seu treino foi concluido com sucesso.', 
+        'Treino Concluído!',
+        'Seu treino foi concluido com sucesso.',
         'success',
         [{ text: 'Excelente!', onPress: () => router.push('/(tabs)/routines') }]
       );
@@ -326,7 +326,7 @@ export default function ExerciseScreen() {
             fitNrGrupoFinal = Number(parentExercise.groupId.replace('grupo_', ''));
           } else {
             fitNrGrupoFinal = Math.floor(1000 + Math.random() * 9000);
-            
+
             const totalSeriesPai = parentExercise.sets.length;
 
             const updateParentPayload: any = {
@@ -335,12 +335,12 @@ export default function ExerciseScreen() {
               exeNrId: Number(parentExercise.exeNrId || 0),
               fitNrOrdem: parentExercise.fitNrOrdem,
               fitNrMetaSeries: totalSeriesPai,
-              fitTxMetaRepeticoes: parentExercise.sets.map((s: any) => s.targetReps).join('-'), 
+              fitTxMetaRepeticoes: parentExercise.sets.map((s: any) => s.targetReps).join('-'),
               fitNrMetaPeso: parseFloat(metaPesoInput) === 0 ? 0.01 : (parseFloat(metaPesoInput) || 0.01),
               fitNrGrupo: fitNrGrupoFinal,
               fitBlDropSet: !!parentExercise.isDropSet
             };
-            
+
             await fichaService.update(updateParentPayload);
           }
         }
@@ -421,8 +421,8 @@ export default function ExerciseScreen() {
   };
 
   const renderTimeDigits = () => {
-    return secondsLeft > 0 
-      ? `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}` 
+    return secondsLeft > 0
+      ? `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}`
       : '00:00';
   };
 
@@ -505,7 +505,7 @@ export default function ExerciseScreen() {
                 <View style={styles.exerciseHeaderRow}>
                   <View style={styles.exerciseTitleBlock}>
                     <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    
+
                     {/* TAG VISUAL DO DROPSET */}
                     {exercise.isDropSet && (
                       <View style={styles.dropSetTag}>
@@ -579,128 +579,135 @@ export default function ExerciseScreen() {
       </KeyboardAvoidingView>
 
       {/* Modal de Criação / Edição */}
-      <Modal visible={isAddModalVisible} animationType="fade" transparent={true} onRequestClose={() => setIsAddModalVisible(false)}>
+      <Modal
+        visible={isAddModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setIsAddModalVisible(false)}
+      >
         <View style={styles.modalOverlayCenter}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardViewCentered}>
-            <View style={styles.modalContentCenter}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Novo Exercício na Ficha</Text>
-                <TouchableOpacity onPress={() => { resetCadastroForm(); setIsAddModalVisible(false); }}>
-                  <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
+          <View style={styles.modalContentCenter}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Novo Exercício na Ficha</Text>
+              <TouchableOpacity onPress={() => { resetCadastroForm(); setIsAddModalVisible(false); }}>
+                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScrollContainer} keyboardShouldPersistTaps="handled">
-                <ExerciseSelect
-                  value={newExerciseName}
-                  onChangeText={(text, itemID) => {
-                    setNewExerciseName(text);
-                    if (itemID === -1) {
-                      setIsCustomModalVisible(true);
-                    } else if (itemID) {
-                      setSelectedExerciseId(Number(itemID));
-                    }
-                  }}
-                />
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContainer}
+              keyboardShouldPersistTaps="always"
+            >
+              <ExerciseSelect
+                value={newExerciseName}
+                onChangeText={(text, itemID) => {
+                  setNewExerciseName(text);
+                  if (itemID === -1) {
+                    setIsCustomModalVisible(true);
+                  } else if (itemID) {
+                    setSelectedExerciseId(Number(itemID));
+                  }
+                }}
+              />
 
-                <View style={styles.dropdownContainer}>
-                  <Text style={styles.dropdownLabel}>Conjugar exercício? (Selecione um ou mais se for Tri-Set)</Text>
-                  {exercises.length === 0 ? (
-                    <View style={styles.dropdownEmptyState}>
-                      <Ionicons name="information-circle-outline" size={14} color={theme.colors.textMuted} />
-                      <Text style={styles.dropdownEmptyStateText}>
-                        Este é o primeiro exercício do treino. Os próximos poderão ser conjugados aqui!
-                      </Text>
-                    </View>
-                  ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dropdownScroll}>
-                      <TouchableOpacity style={[styles.dropdownItem, selectedParentIds.length === 0 && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection('')} activeOpacity={0.8}>
-                        <Text style={[styles.dropdownItemText, selectedParentIds.length === 0 && styles.dropdownItemTextActive]}>Isolado / Não conjugar</Text>
-                      </TouchableOpacity>
-
-                      {exercises.map((ex) => {
-                        const isSelected = selectedParentIds.includes(ex.id);
-                        return (
-                          <TouchableOpacity key={ex.id} style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection(ex.id)} activeOpacity={0.8}>
-                            <View style={styles.checkboxLabelRow}>
-                              {isSelected && <Ionicons name="checkmark-sharp" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />}
-                              <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>{ex.name}</Text>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
-                  )}
-                </View>
-
-                {/* FORMULÁRIO DE SELEÇÃO DO DROP-SET */}
-                <View style={styles.dropSetToggleContainer}>
-                  <Text style={styles.dropdownLabel}>Este exercício possui Drop-Set?</Text>
-                  <Switch
-                    value={isDropSetInput}
-                    onValueChange={(val) => {
-                      setIsDropSetInput(val);
-                      setModalSets([{ targetReps: val ? '15-12-10' : '10' }]);
-                    }}
-                    trackColor={{ false: theme.colors.surfaceLight, true: theme.colors.primary }}
-                    thumbColor={isDropSetInput ? '#fff' : theme.colors.textMuted}
-                  />
-                </View>
-
-                <View style={{ marginTop: theme.spacing.sm }}>
-                  <Input label="Meta de Carga Inicial (kg)" placeholder="Ex: 20" keyboardType="numeric" value={metaPesoInput} onChangeText={setMetaPesoInput} />
-                </View>
-
-                {isDropSetInput ? (
-                  <View style={{ marginTop: theme.spacing.md }}>
-                    <Text style={styles.dropdownLabel}>Sequência do Drop (Separada por hifens)</Text>
-                    <Input 
-                      placeholder="Ex: 15-12-10" 
-                      keyboardType="default" 
-                      value={modalSets[0]?.targetReps || ''} 
-                      onChangeText={(val) => updateSetRepsInModal(0, val)} 
-                    />
-                    <Text style={{ fontSize: 11, color: theme.colors.textMuted, marginTop: 2 }}>
-                      Digite o número de repetições de cada redução separado por hífen.
+              <View style={styles.dropdownContainer}>
+                <Text style={styles.dropdownLabel}>Conjugar exercício? (Selecione um ou mais se for Tri-Set)</Text>
+                {exercises.length === 0 ? (
+                  <View style={styles.dropdownEmptyState}>
+                    <Ionicons name="information-circle-outline" size={14} color={theme.colors.textMuted} />
+                    <Text style={styles.dropdownEmptyStateText}>
+                      Este é o primeiro exercício do treino. Os próximos poderão ser conjugados aqui!
                     </Text>
                   </View>
                 ) : (
-                  <>
-                    <View style={styles.modalSetsSectionHeader}>
-                      <Text style={styles.modalSetsSectionTitle}>Definir Metas das Séries</Text>
-                      <TouchableOpacity style={styles.addSetButton} onPress={addSetInModal} activeOpacity={0.7}>
-                        <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
-                        <Text style={styles.addSetButtonText}>Série</Text>
-                      </TouchableOpacity>
-                    </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dropdownScroll}>
+                    <TouchableOpacity style={[styles.dropdownItem, selectedParentIds.length === 0 && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection('')} activeOpacity={0.8}>
+                      <Text style={[styles.dropdownItemText, selectedParentIds.length === 0 && styles.dropdownItemTextActive]}>Isolado / Não conjugar</Text>
+                    </TouchableOpacity>
 
-                    <View style={styles.modalColumnTitleRow}>
-                      <Text style={styles.modalColumnTitleNumber}>#</Text>
-                      <Text style={styles.modalColumnTitleLabel}>Meta de Repetições (Reps)</Text>
-                    </View>
-
-                    <View style={styles.modalSetsContainer}>
-                      {modalSets.map((set, index) => (
-                        <View key={index} style={styles.modalSetRow}>
-                          <Text style={styles.modalSetNumberLabel}>#{index + 1}</Text>
-                          <View style={styles.flex1}>
-                            <Input placeholder="Ex: 10" keyboardType="default" value={set.targetReps} onChangeText={(val) => updateSetRepsInModal(index, val)} />
+                    {exercises.map((ex) => {
+                      const isSelected = selectedParentIds.includes(ex.id);
+                      return (
+                        <TouchableOpacity key={ex.id} style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection(ex.id)} activeOpacity={0.8}>
+                          <View style={styles.checkboxLabelRow}>
+                            {isSelected && <Ionicons name="checkmark-sharp" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />}
+                            <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>{ex.name}</Text>
                           </View>
-                          {modalSets.length > 1 && (
-                            <TouchableOpacity style={styles.removeSetRowBtn} onPress={() => removeSetInModal(index)}>
-                              <Ionicons name="remove-circle-outline" size={22} color={theme.colors.primary} />
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  </>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
                 )}
-              </ScrollView>
+              </View>
 
-              <Button title="Adicionar à Ficha" isLoading={isSavingExercise} onPress={handleAddExerciseToFicha} style={styles.modalSubmitBtn} />
-            </View>
-          </KeyboardAvoidingView>
+              {/* FORMULÁRIO DE SELEÇÃO DO DROP-SET */}
+              <View style={styles.dropSetToggleContainer}>
+                <Text style={styles.dropdownLabel}>Este exercício possui Drop-Set?</Text>
+                <Switch
+                  value={isDropSetInput}
+                  onValueChange={(val) => {
+                    setIsDropSetInput(val);
+                    setModalSets([{ targetReps: val ? '15-12-10' : '10' }]);
+                  }}
+                  trackColor={{ false: theme.colors.surfaceLight, true: theme.colors.primary }}
+                  thumbColor={isDropSetInput ? '#fff' : theme.colors.textMuted}
+                />
+              </View>
+
+              <View style={{ marginTop: theme.spacing.sm }}>
+                <Input label="Meta de Carga Inicial (kg)" placeholder="Ex: 20" keyboardType="numeric" value={metaPesoInput} onChangeText={setMetaPesoInput} />
+              </View>
+
+              {isDropSetInput ? (
+                <View style={{ marginTop: theme.spacing.md }}>
+                  <Text style={styles.dropdownLabel}>Sequência do Drop (Separada por hifens)</Text>
+                  <Input
+                    placeholder="Ex: 15-12-10"
+                    keyboardType="default"
+                    value={modalSets[0]?.targetReps || ''}
+                    onChangeText={(val) => updateSetRepsInModal(0, val)}
+                  />
+                  <Text style={{ fontSize: 11, color: theme.colors.textMuted, marginTop: 2 }}>
+                    Digite o número de repetições de cada redução separado por hífen.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.modalSetsSectionHeader}>
+                    <Text style={styles.modalSetsSectionTitle}>Definir Metas das Séries</Text>
+                    <TouchableOpacity style={styles.addSetButton} onPress={addSetInModal} activeOpacity={0.7}>
+                      <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
+                      <Text style={styles.addSetButtonText}>Série</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.modalColumnTitleRow}>
+                    <Text style={styles.modalColumnTitleNumber}>#</Text>
+                    <Text style={styles.modalColumnTitleLabel}>Meta de Repetições (Reps)</Text>
+                  </View>
+
+                  <View style={styles.modalSetsContainer}>
+                    {modalSets.map((set, index) => (
+                      <View key={index} style={styles.modalSetRow}>
+                        <Text style={styles.modalSetNumberLabel}>#{index + 1}</Text>
+                        <View style={styles.flex1}>
+                          <Input placeholder="Ex: 10" keyboardType="default" value={set.targetReps} onChangeText={(val) => updateSetRepsInModal(index, val)} />
+                        </View>
+                        {modalSets.length > 1 && (
+                          <TouchableOpacity style={styles.removeSetRowBtn} onPress={() => removeSetInModal(index)}>
+                            <Ionicons name="remove-circle-outline" size={22} color={theme.colors.primary} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            <Button title="Adicionar à Ficha" isLoading={isSavingExercise} onPress={handleAddExerciseToFicha} style={styles.modalSubmitBtn} />
+          </View>
         </View>
       </Modal>
 

@@ -55,7 +55,7 @@ export default function LoginRoute() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
@@ -112,7 +112,7 @@ export default function LoginRoute() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
-  scrollContainer: { flexGrow: 1, justifyContent: 'center', padding: theme.spacing.lg },
+  scrollContainer: { flexGrow: 1, justifyContent: 'center', padding: theme.spacing.lg, backgroundColor: theme.colors.background },
   header: { alignItems: 'center', marginBottom: theme.spacing.xl },
   logo: { fontSize: 36, fontWeight: '900', color: theme.colors.primary, letterSpacing: 2 },
   subtitle: { fontSize: 14, color: theme.colors.textSecondary, marginTop: theme.spacing.xs },
