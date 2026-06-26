@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "app-treinos",
-    "slug": "app-treinos",
+    "name": "IronTrack",
+    "slug": "irontrack",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -19,7 +19,9 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#121212"
-      }
+      },
+      "minifyReleaseWithR8": true,
+      "package": "com.kaylaineasb.irontrack"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -27,6 +29,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5f57f8c1-a512-4723-9503-a34835ce1bdf"
+      }
+    },
+    "owner": "kaylaineasb"
   }
 }
