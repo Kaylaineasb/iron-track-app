@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { Alert } from 'react-native';
 
 const ENCODED_URL = process.env.EXPO_PUBLIC_API_URL || '';
 const API_URL = atob(ENCODED_URL);
@@ -51,7 +52,21 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (!error.response) {
+      return Promise.reject(error);
+    }
+
+    const status = error.response.status;
+
+    if (status === 429) {
+      Alert.alert(
+        "Calma aí, atleta!",
+        "Você está enviando requisições rápido demais. Aguarde alguns segundos e tente novamente."
+      );
+      return Promise.reject(error);
+    }
+
+    if (status === 401 && !originalRequest._retry) {
       
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
