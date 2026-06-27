@@ -83,56 +83,61 @@ export default function ExerciseScreen() {
   };
 
   const loadFichas = async () => {
-    try {
-      const data: any = await fichaService.getByTreinoId(treNrIdNumeric);
-      const mappedExercises: any[] = [];
+  try {
+    const data: any = await fichaService.getByTreinoId(treNrIdNumeric);
+    const mappedExercises: any[] = [];
 
-      data.forEach((bloco: any, blocoIdx: number) => {
-        if (bloco.Exercicios && Array.isArray(bloco.Exercicios)) {
-          bloco.Exercicios.forEach((item: any) => {
+    if (!data || !Array.isArray(data)) {
+      setExercises([]);
+      return;
+    }
+    let blocoIdx = 0;
+    for (const bloco of data) {
+      if (bloco.Exercicios && Array.isArray(bloco.Exercicios)) {
+        for (const item of bloco.Exercicios) {
+          
+          const quantidadeDeSeries = bloco.fitNrMetaSeries;
 
-            const quantidadeDeSeries = bloco.fitNrMetaSeries;
+          const generatedSets: SetMeta[] = Array.from({ length: quantidadeDeSeries }).map((_, index) => {
+            const repsDoBanco = item.fitTxMetaRepeticoes?.[0] || '10';
 
-            const generatedSets: SetMeta[] = Array.from({ length: quantidadeDeSeries }).map((_, index) => {
-              const repsDoBanco = item.fitTxMetaRepeticoes?.[0] || '10';
+            const textoMetaRepeticoes = item.fitBlDropSet || repsDoBanco.includes('-')
+              ? repsDoBanco
+              : (item.fitTxMetaRepeticoes[index] || item.fitTxMetaRepeticoes[0] || '10');
 
-              const textoMetaRepeticoes = item.fitBlDropSet || repsDoBanco.includes('-')
-                ? repsDoBanco
-                : (item.fitTxMetaRepeticoes[index] || item.fitTxMetaRepeticoes[0] || '10');
+            const pesoFormatado = !item.fitNrMetaPeso || item.fitNrMetaPeso === 0 || item.fitNrMetaPeso === 0.01
+              ? ''
+              : String(item.fitNrMetaPeso);
 
-              const pesoFormatado = !item.fitNrMetaPeso || item.fitNrMetaPeso === 0 || item.fitNrMetaPeso === 0.01
-                ? ''
-                : String(item.fitNrMetaPeso);
+            return {
+              id: `${item.fitNrId}_set_${index + 1}`,
+              setNumber: index + 1,
+              targetReps: textoMetaRepeticoes,
+              doneReps: '',
+              doneWeight: '',
+              targetWeight: pesoFormatado,
+              isDone: false,
+            };
+          });
 
-              return {
-                id: `${item.fitNrId}_set_${index + 1}`,
-                setNumber: index + 1,
-                targetReps: textoMetaRepeticoes,
-                doneReps: '',
-                doneWeight: '',
-                targetWeight: pesoFormatado,
-                isDone: false,
-              };
-            });
-
-            mappedExercises.push({
-              id: String(item.fitNrId),
-              exeNrId: item.exeNrId,
-              name: item.exeTxNome,
-              sets: generatedSets,
-              groupId: bloco.isConjudado ? `grupo_${blocoIdx}` : undefined,
-              isDropSet: item.fitBlDropSet,
-              fitNrOrdem: mappedExercises.length + 1
-            });
+          mappedExercises.push({
+            id: String(item.fitNrId),
+            exeNrId: item.exeNrId,
+            name: item.exeTxNome,
+            sets: generatedSets,
+            groupId: bloco.isConjudado ? `grupo_${blocoIdx}` : undefined,
+            isDropSet: item.fitBlDropSet,
+            fitNrOrdem: mappedExercises.length + 1
           });
         }
-      });
-
-      setExercises(mappedExercises);
-    } catch (error) {
-      showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor.', 'error');
+      }
+      blocoIdx++;
     }
-  };
+    setExercises(mappedExercises);
+  } catch (error) {
+    showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor.', 'error');
+  }
+};
 
   const handleStartWorkoutSession = async () => {
     setIsStartingSession(true);
@@ -361,10 +366,14 @@ export default function ExerciseScreen() {
       await loadFichas();
       resetCadastroForm();
       setIsAddModalVisible(false);
-    } catch (error: any) {
-      const msg = error.response?.data?.erro || 'Falha ao salvar a ficha no servidor.';
-      showAlert('Erro de Gravação', msg, 'error');
-    } finally {
+    }catch (error: any) {
+      if (error.code === 'ECONNABORTED') {
+        showAlert('Timeout', 'O servidor demorou para responder, mas pode ter cadastrado. Recarregue a ficha.', 'warning');
+      } else {
+        const msg = error.response?.data?.erro || 'Falha ao salvar a ficha no servidor.';
+        showAlert('Erro de Gravação', msg, 'error');
+      }
+    }finally {
       setIsSavingExercise(false);
     }
   };
