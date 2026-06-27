@@ -7,6 +7,7 @@ import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/Cus
 import { Ionicons } from '@expo/vector-icons';
 import { evolutionService, EvolucaoModel } from '@/services/evolutionService';
 import { SectionData, EvolutionFormState } from '@/core/types/evolutionTypes';
+import { useRefresh } from '@/core/hooks/useRefresh';
 
 export default function EvolutionRoute() {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -41,6 +42,8 @@ export default function EvolutionRoute() {
       setIsFetching(false);
     }
   };
+
+  const { refreshing, onRefresh } = useRefresh(loadEvolutionData);
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return '--/--/----';
@@ -183,6 +186,8 @@ export default function EvolutionRoute() {
         stickySectionHeadersEnabled={false}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={!isFetching ? <Text style={styles.emptyText}>Nenhuma medição registrada.</Text> : null}
         ListHeaderComponent={
           <View>

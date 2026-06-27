@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, SectionList, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, SectionList, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { theme } from '@/core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert';
 import { serieService } from '@/services/serieService';
 import { sessionService } from '@/services/sessionService';
+import { useRefresh } from '@/core/hooks/useRefresh';
 import { 
   SessaoTreinoDetalhada, 
   SerieExecutadaDetalhada, 
@@ -15,7 +16,6 @@ import {
 
 export default function HistoryScreen() {
   const [sections, setSections] = useState<SectionHistoryData[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const isFocused = useIsFocused();
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -29,29 +29,27 @@ export default function HistoryScreen() {
   const [alertType, setAlertType] = useState<CustomAlertType>('info');
   const [alertButtons, setAlertButtons] = useState<AlertButton[]>([]);
 
+  const loadWorkoutHistory = async () => {
+    try {
+      const data = await sessionService.getHistory();
+      if (data && data.length > 0) {
+        setSections(groupLogsByMonth(data));
+      } else {
+        setSections([]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar histórico do backend:', error);
+      setSections([]);
+    }
+  };
+
+  const { refreshing, onRefresh } = useRefresh(loadWorkoutHistory);
+
   useEffect(() => {
     if (isFocused) {
       loadWorkoutHistory();
     }
   }, [isFocused]);
-
-  const loadWorkoutHistory = async () => {
-    setIsLoading(true);
-    try {
-      const data = await sessionService.getHistory();
-    if (data && data.length > 0) {
-      const grouped = groupLogsByMonth(data);
-      setSections(grouped);
-    } else {
-      setSections([]);
-    }
-    } catch (error) {
-      console.error('Erro ao buscar histórico do backend:', error);
-      setSections([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const groupLogsByMonth = (logs: SessaoTreinoDetalhada[]): SectionHistoryData[] => {
     const months = [
@@ -132,7 +130,6 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Cabeçalho */}
       <View style={styles.headerRow}>
         <View style={styles.titleContainer}>
           <Text style={styles.screenTitle}>🏋️‍♂️ Histórico de Treinos</Text>
@@ -140,50 +137,45 @@ export default function HistoryScreen() {
         </View>
       </View>
 
-      {/* Loading Principal */}
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => String(item.setNrId)}
-          stickySectionHeadersEnabled={false}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="calendar-outline" size={48} color={theme.colors.textMuted} />
-              <Text style={styles.emptyText}>Nenhum treino registrado ainda.</Text>
-              <Text style={styles.emptySubText}>Complete um treino da sua ficha para ver o log aqui!</Text>
-            </View>
-          }
-          renderSectionHeader={({ section: { title } }) => (
-            <Text style={styles.sectionHeaderTitle}>{title}</Text>
-          )}
-          renderItem={({ item: log }) => (
-            <TouchableOpacity 
-              style={styles.logCard}
-              onPress={() => handleOpenDetails(log)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.cardHeader}>
-                <View style={styles.cardHeaderMain}>
-                  <Text style={styles.routineNameText}>{log.treTxNome}</Text>
-                  {log.treTxDescricao ? (
-                    <Text style={styles.descriptionText} numberOfLines={1}>{log.treTxDescricao}</Text>
-                  ) : null}
-                  <Text style={styles.dateText}>
-                    🗓️ {formatDate(log.setDtData)} • ⏱️ {calculateDuration(log.setTmHoraInicio, log.setTmHoraFim)}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => String(item.setNrId)}
+        stickySectionHeadersEnabled={false}
+        contentContainerStyle={styles.listContainer}
+        showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="calendar-outline" size={48} color={theme.colors.textMuted} />
+            <Text style={styles.emptyText}>Nenhum treino registrado ainda.</Text>
+            <Text style={styles.emptySubText}>Complete um treino da sua ficha para ver o log aqui!</Text>
+          </View>
+        }
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={styles.sectionHeaderTitle}>{title}</Text>
+        )}
+        renderItem={({ item: log }) => (
+          <TouchableOpacity 
+            style={styles.logCard}
+            onPress={() => handleOpenDetails(log)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderMain}>
+                <Text style={styles.routineNameText}>{log.treTxNome}</Text>
+                {log.treTxDescricao ? (
+                  <Text style={styles.descriptionText} numberOfLines={1}>{log.treTxDescricao}</Text>
+                ) : null}
+                <Text style={styles.dateText}>
+                  🗓️ {formatDate(log.setDtData)} • ⏱️ {calculateDuration(log.setTmHoraInicio, log.setTmHoraFim)}
+                </Text>
               </View>
-            </TouchableOpacity>
-          )}
-        />
-      )}
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+            </View>
+          </TouchableOpacity>
+        )}
+      />
 
       {/* MODAL DETALHADO EXPANSIVO */}
       <Modal
@@ -195,7 +187,6 @@ export default function HistoryScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             
-            {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalTitle}>{selectedSessao?.treTxNome}</Text>
@@ -208,10 +199,8 @@ export default function HistoryScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Modal Body */}
             {isLoadingModal ? (
               <View style={styles.modalCenter}>
-                <ActivityIndicator size="small" color={theme.colors.primary} />
                 <Text style={styles.loadingModalText}>Carregando exercícios executados...</Text>
               </View>
             ) : (
@@ -259,8 +248,6 @@ const styles = StyleSheet.create({
   titleContainer: { flex: 1 },
   screenTitle: { fontSize: 22, fontWeight: 'bold', color: theme.colors.text },
   subtitle: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 2 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
   listContainer: { paddingBottom: theme.spacing.xl },
   sectionHeaderTitle: { fontSize: 13, fontWeight: 'bold', color: theme.colors.primary, marginTop: theme.spacing.md, marginBottom: theme.spacing.xs, textTransform: 'uppercase', letterSpacing: 1 },
   logCard: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.md, marginBottom: theme.spacing.sm, borderWidth: 1, borderColor: theme.colors.surfaceLight, overflow: 'hidden' },
@@ -278,16 +265,13 @@ const styles = StyleSheet.create({
   modalCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 40 },
   loadingModalText: { color: theme.colors.textSecondary, marginTop: 10, fontSize: 13 },
   noSeriesText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: 40 },
-  
   exerciseBlock: { marginBottom: theme.spacing.md, backgroundColor: theme.colors.background, padding: theme.spacing.sm, borderRadius: theme.borderRadius.md, borderWidth: 1, borderColor: theme.colors.surfaceLight },
   exerciseNameText: { fontSize: 14, fontWeight: 'bold', color: theme.colors.text, marginBottom: 8 },
   setsGrid: { gap: 6 },
   setTag: { backgroundColor: theme.colors.surface, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: theme.colors.surfaceLight },
   setTagText: { fontSize: 12, color: theme.colors.textSecondary },
-  
   boldText: { color: theme.colors.text, fontWeight: 'bold' },
   primaryText: { color: theme.colors.primary, fontWeight: 'bold' },
-  
   emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 80, paddingHorizontal: theme.spacing.xl },
   emptyText: { color: theme.colors.textSecondary, fontSize: 15, fontWeight: '600', marginTop: theme.spacing.md, textAlign: 'center' },
   emptySubText: { color: theme.colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 4 },

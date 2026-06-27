@@ -8,6 +8,7 @@ import { Button } from '@/core/components/Button';
 import { CustomAlert, CustomAlertType, AlertButton } from '@/core/components/CustomAlert';
 import { workoutService, WorkoutRoutine } from '@/services/workoutService';
 import { useIsFocused } from '@react-navigation/native';
+import { useRefresh } from '@/core/hooks/useRefresh';
 
 export default function RoutinesRoute() {
   const router = useRouter();
@@ -43,6 +44,8 @@ export default function RoutinesRoute() {
       showAlert('Erro', 'Não foi possível carregar os seus treinos do servidor.', 'error');
     }
   };
+
+  const { refreshing, onRefresh } = useRefresh(loadRoutines);
 
   const showAlert = (title: string, message: string, type: CustomAlertType, buttons?: AlertButton[]) => {
     setAlertTitle(title);
@@ -180,6 +183,8 @@ export default function RoutinesRoute() {
         keyExtractor={(item) => String(item.treNrId)}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         ListEmptyComponent={<Text style={styles.emptyText}>Nenhum treino cadastrado no banco Go.</Text>}
         renderItem={({ item }) => (
           <TouchableOpacity
