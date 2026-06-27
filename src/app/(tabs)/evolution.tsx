@@ -35,6 +35,7 @@ export default function EvolutionRoute() {
     setIsFetching(true);
     try {
       const data = await evolutionService.getAll();
+      setHistory(data || []);
       setHistory(data);
     } catch (error) {
       showAlert('Erro', 'Não foi possível carregar o histórico de evolução do servidor.', 'error');
@@ -52,6 +53,7 @@ export default function EvolutionRoute() {
   };
 
   const groupMeasurementsByMonth = (measurements: EvolucaoModel[]): SectionData[] => {
+    if (!measurements || !Array.isArray(measurements)) return [];
     const months = [
       'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
