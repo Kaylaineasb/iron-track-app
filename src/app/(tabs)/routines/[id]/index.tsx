@@ -12,6 +12,7 @@ import { CustomExerciseModal } from '@/core/components/CustomExerciseModal';
 import { sessionService } from '@/services/sessionService';
 import { SerieExecutadaPayload, serieService } from '@/services/serieService';
 import { SetMeta, ModalSetInput, FichaTreinoPayload } from '@/core/types/exerciseTypes';
+import { useRefresh } from '@/core/hooks/useRefresh';
 
 export default function ExerciseScreen() {
   const router = useRouter();
@@ -83,61 +84,63 @@ export default function ExerciseScreen() {
   };
 
   const loadFichas = async () => {
-  try {
-    const data: any = await fichaService.getByTreinoId(treNrIdNumeric);
-    const mappedExercises: any[] = [];
+    try {
+      const data: any = await fichaService.getByTreinoId(treNrIdNumeric);
+      const mappedExercises: any[] = [];
 
-    if (!data || !Array.isArray(data)) {
-      setExercises([]);
-      return;
-    }
-    let blocoIdx = 0;
-    for (const bloco of data) {
-      if (bloco.Exercicios && Array.isArray(bloco.Exercicios)) {
-        for (const item of bloco.Exercicios) {
-          
-          const quantidadeDeSeries = bloco.fitNrMetaSeries;
-
-          const generatedSets: SetMeta[] = Array.from({ length: quantidadeDeSeries }).map((_, index) => {
-            const repsDoBanco = item.fitTxMetaRepeticoes?.[0] || '10';
-
-            const textoMetaRepeticoes = item.fitBlDropSet || repsDoBanco.includes('-')
-              ? repsDoBanco
-              : (item.fitTxMetaRepeticoes[index] || item.fitTxMetaRepeticoes[0] || '10');
-
-            const pesoFormatado = !item.fitNrMetaPeso || item.fitNrMetaPeso === 0 || item.fitNrMetaPeso === 0.01
-              ? ''
-              : String(item.fitNrMetaPeso);
-
-            return {
-              id: `${item.fitNrId}_set_${index + 1}`,
-              setNumber: index + 1,
-              targetReps: textoMetaRepeticoes,
-              doneReps: '',
-              doneWeight: '',
-              targetWeight: pesoFormatado,
-              isDone: false,
-            };
-          });
-
-          mappedExercises.push({
-            id: String(item.fitNrId),
-            exeNrId: item.exeNrId,
-            name: item.exeTxNome,
-            sets: generatedSets,
-            groupId: bloco.isConjudado ? `grupo_${blocoIdx}` : undefined,
-            isDropSet: item.fitBlDropSet,
-            fitNrOrdem: mappedExercises.length + 1
-          });
-        }
+      if (!data || !Array.isArray(data)) {
+        setExercises([]);
+        return;
       }
-      blocoIdx++;
+      let blocoIdx = 0;
+      for (const bloco of data) {
+        if (bloco.Exercicios && Array.isArray(bloco.Exercicios)) {
+          for (const item of bloco.Exercicios) {
+            
+            const quantidadeDeSeries = bloco.fitNrMetaSeries;
+
+            const generatedSets: SetMeta[] = Array.from({ length: quantidadeDeSeries }).map((_, index) => {
+              const repsDoBanco = item.fitTxMetaRepeticoes?.[0] || '10';
+
+              const textoMetaRepeticoes = item.fitBlDropSet || repsDoBanco.includes('-')
+                ? repsDoBanco
+                : (item.fitTxMetaRepeticoes[index] || item.fitTxMetaRepeticoes[0] || '10');
+
+              const pesoFormatado = !item.fitNrMetaPeso || item.fitNrMetaPeso === 0 || item.fitNrMetaPeso === 0.01
+                ? ''
+                : String(item.fitNrMetaPeso);
+
+              return {
+                id: `${item.fitNrId}_set_${index + 1}`,
+                setNumber: index + 1,
+                targetReps: textoMetaRepeticoes,
+                doneReps: '',
+                doneWeight: '',
+                targetWeight: pesoFormatado,
+                isDone: false,
+              };
+            });
+
+            mappedExercises.push({
+              id: String(item.fitNrId),
+              exeNrId: item.exeNrId,
+              name: item.exeTxNome,
+              sets: generatedSets,
+              groupId: bloco.isConjudado ? `grupo_${blocoIdx}` : undefined,
+              isDropSet: item.fitBlDropSet,
+              fitNrOrdem: mappedExercises.length + 1
+            });
+          }
+        }
+        blocoIdx++;
+      }
+      setExercises(mappedExercises);
+    } catch (error) {
+      showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor.', 'error');
     }
-    setExercises(mappedExercises);
-  } catch (error) {
-    showAlert('Erro', 'Não foi possível carregar a ficha de exercícios do servidor.', 'error');
-  }
-};
+  };
+
+  const { refreshing, onRefresh } = useRefresh(loadFichas);
 
   const handleStartWorkoutSession = async () => {
     setIsStartingSession(true);
@@ -496,6 +499,8 @@ export default function ExerciseScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
           ListEmptyComponent={<Text style={styles.emptyText}>Nenhum exercício cadastrado nesta ficha do banco Go.</Text>}
           renderItem={({ item: exercise, index }) => {
             const nextExercise = exercises[index + 1];
