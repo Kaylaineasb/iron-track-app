@@ -93,6 +93,18 @@ export function ExerciseSelect({ value, onChangeText }: ExerciseSelectProps) {
             loadExercisesFromBackend();
           }}
         />
+        {search.length > 0 && (
+          <TouchableOpacity 
+            style={styles.clearBtn} 
+            onPress={() => {
+              setSearch('');
+              onChangeText('', 0);
+              setIsOpen(true);
+            }}
+          >
+            <Ionicons name="close-circle" size={18} color={theme.colors.textMuted} />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.arrowBtn} onPress={() => {
           if (!isOpen) loadExercisesFromBackend();
           setIsOpen(!isOpen);
@@ -199,5 +211,6 @@ const styles = StyleSheet.create({
   pageIndicator: { fontSize: 14, color: theme.colors.text, fontWeight: 'bold' },
   pageTotalText: { fontSize: 12, color: theme.colors.textMuted, fontWeight: 'normal' },
   loadingContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
-  loadingText: { color: theme.colors.textSecondary, fontSize: 13 }
+  loadingText: { color: theme.colors.textSecondary, fontSize: 13 },
+  clearBtn: { height: '100%', justifyContent: 'center', paddingHorizontal: 8,},
 });
