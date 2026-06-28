@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 
 const ENCODED_URL = process.env.EXPO_PUBLIC_API_URL || '';
 const API_URL = atob(ENCODED_URL);
+// const API_URL =process.env.EXPO_PUBLIC_API_URL || '';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -48,7 +49,12 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.status === 200 && !response.data) {
+      response.data = {}; 
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 
