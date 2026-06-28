@@ -9,9 +9,12 @@ const API_URL = atob(ENCODED_URL);
 export const api = axios.create({
   baseURL: API_URL,
   timeout: 30000,
-  headers: {
+   headers: {
     'Content-Type': 'application/json',
+    'Connection': 'close',
   },
+  httpAgent: undefined,
+  httpsAgent: undefined,
 });
 
 let isRefreshing = false;
@@ -50,12 +53,23 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
-    if (response.status === 200 && !response.data) {
+    console.log("<<< RESPONSE >>>");
+    console.log(response.config.url);
+    console.log(response.status);
+    console.log(response.data);
+    if ((response.status === 200 || response.status === 201) && !response.data) {
+      console.log("API", API_URL);
       response.data = {}; 
     }
     return response;
   },
   async (error) => {
+    console.log("<<< ERROR >>>");
+    console.log("URL:", error.config?.url);
+    console.log("MESSAGE:", error.message);
+    console.log("CODE:", error.code);
+    console.log("STATUS:", error.response?.status);
+    console.log("REQUEST:", error.request?._response);
     const originalRequest = error.config;
 
     if (!error.response) {
