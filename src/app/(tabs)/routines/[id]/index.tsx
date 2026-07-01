@@ -614,6 +614,8 @@ export default function ExerciseScreen() {
 
               <ScrollView
                 showsVerticalScrollIndicator={true}
+                persistentScrollbar={true}
+                scrollIndicatorInsets={{ right: 1 }}
                 contentContainerStyle={styles.modalScrollContainer}
                 keyboardShouldPersistTaps="always"
               >
@@ -804,7 +806,21 @@ const styles = StyleSheet.create({
   modalSkipBtn: { width: '100%' },
   modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: theme.spacing.lg },
   keyboardViewCentered: { width: '100%', justifyContent: 'center', alignItems: 'center', },
-  modalContentCenter: { backgroundColor: theme.colors.surface, width: '100%', borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg, maxHeight: '60%', borderWidth: 1, borderColor: theme.colors.surfaceLight, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, },
+  modalContentCenter: { backgroundColor: theme.colors.surface, 
+  width: '100%', 
+  borderRadius: theme.borderRadius.lg, 
+  paddingVertical: theme.spacing.lg, 
+  paddingLeft: theme.spacing.lg,
+  paddingRight: theme.spacing.xs,
+  maxHeight: '80%', 
+  borderWidth: 1, 
+  borderColor: theme.colors.surfaceLight, 
+  shadowColor: '#000', 
+  shadowOffset: { width: 0, height: 4 }, 
+  shadowOpacity: 0.3, 
+  shadowRadius: 4, 
+  elevation: 5, 
+},
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.md },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
   dropdownContainer: { marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
@@ -828,7 +844,7 @@ const styles = StyleSheet.create({
   modalSetRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: theme.spacing.sm },
   modalSetNumberLabel: { fontSize: 13, fontWeight: 'bold', color: theme.colors.primary, width: 25, textAlign: 'center' },
   removeSetRowBtn: { paddingLeft: 12, justifyContent: 'center', alignItems: 'center', height: 40 },
-  modalScrollContainer: { paddingBottom: theme.spacing.md },
-  modalSubmitBtn: { marginTop: theme.spacing.md, width: '100%' },
+  modalScrollContainer: { paddingRight: theme.spacing.md, paddingBottom: theme.spacing.md, },
+  modalSubmitBtn: { marginTop: theme.spacing.sm, width: '100%', alignSelf: 'center',maxWidth: '94%', },
   emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.spacing.xl }
 });
