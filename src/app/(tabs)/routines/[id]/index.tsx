@@ -600,128 +600,132 @@ export default function ExerciseScreen() {
         onRequestClose={() => setIsAddModalVisible(false)}
       >
         <View style={styles.modalOverlayCenter}>
-          <View style={styles.modalContentCenter}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Novo Exercício na Ficha</Text>
-              <TouchableOpacity onPress={() => { resetCadastroForm(); setIsAddModalVisible(false); }}>
-                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            style={styles.keyboardViewCentered}
+          >
+            <View style={styles.modalContentCenter}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Novo Exercício na Ficha</Text>
+                <TouchableOpacity onPress={() => { resetCadastroForm(); setIsAddModalVisible(false); }}>
+                  <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.modalScrollContainer}
-              keyboardShouldPersistTaps="always"
-            >
-              <ExerciseSelect
-                value={newExerciseName}
-                onChangeText={(text, itemID) => {
-                  setNewExerciseName(text);
-                  if (itemID === -1) {
-                    setIsCustomModalVisible(true);
-                  } else if (itemID) {
-                    setSelectedExerciseId(Number(itemID));
-                  }
-                }}
-              />
+              <ScrollView
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={styles.modalScrollContainer}
+                keyboardShouldPersistTaps="always"
+              >
+                <ExerciseSelect
+                  value={newExerciseName}
+                  onChangeText={(text, itemID) => {
+                    setNewExerciseName(text);
+                    if (itemID === -1) {
+                      setIsCustomModalVisible(true);
+                    } else if (itemID) {
+                      setSelectedExerciseId(Number(itemID));
+                    }
+                  }}
+                />
 
-              <View style={styles.dropdownContainer}>
-                <Text style={styles.dropdownLabel}>Conjugar exercício? (Selecione um ou mais se for Tri-Set)</Text>
-                {exercises.length === 0 ? (
-                  <View style={styles.dropdownEmptyState}>
-                    <Ionicons name="information-circle-outline" size={14} color={theme.colors.textMuted} />
-                    <Text style={styles.dropdownEmptyStateText}>
-                      Este é o primeiro exercício do treino. Os próximos poderão ser conjugados aqui!
+                <View style={styles.dropdownContainer}>
+                  <Text style={styles.dropdownLabel}>Conjugar exercício? (Selecione se for Tri-Set)</Text>
+                  {exercises.length === 0 ? (
+                    <View style={styles.dropdownEmptyState}>
+                      <Ionicons name="information-circle-outline" size={14} color={theme.colors.textMuted} />
+                      <Text style={styles.dropdownEmptyStateText}>
+                        Este é o primeiro exercício do treino. Os próximos poderão ser conjugados aqui!
+                      </Text>
+                    </View>
+                  ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dropdownScroll}>
+                      <TouchableOpacity style={[styles.dropdownItem, selectedParentIds.length === 0 && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection('')} activeOpacity={0.8}>
+                        <Text style={[styles.dropdownItemText, selectedParentIds.length === 0 && styles.dropdownItemTextActive]}>Isolado / Não conjugar</Text>
+                      </TouchableOpacity>
+
+                      {exercises.map((ex) => {
+                        const isSelected = selectedParentIds.includes(ex.id);
+                        return (
+                          <TouchableOpacity key={ex.id} style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection(ex.id)} activeOpacity={0.8}>
+                            <View style={styles.checkboxLabelRow}>
+                              {isSelected && <Ionicons name="checkmark-sharp" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />}
+                              <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>{ex.name}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
+                </View>
+
+                <View style={styles.dropSetToggleContainer}>
+                  <Text style={styles.dropdownLabel}>Este exercício possui Drop-Set?</Text>
+                  <Switch
+                    value={isDropSetInput}
+                    onValueChange={(val) => {
+                      setIsDropSetInput(val);
+                      setModalSets([{ targetReps: val ? '15-12-10' : '10' }]);
+                    }}
+                    trackColor={{ false: theme.colors.surfaceLight, true: theme.colors.primary }}
+                    thumbColor={isDropSetInput ? '#fff' : theme.colors.textMuted}
+                  />
+                </View>
+
+                <View style={{ marginTop: theme.spacing.sm }}>
+                  <Input label="Meta de Carga Inicial (kg)" placeholder="Ex: 20" keyboardType="numeric" value={metaPesoInput} onChangeText={setMetaPesoInput} />
+                </View>
+
+                {isDropSetInput ? (
+                  <View style={{ marginTop: theme.spacing.md }}>
+                    <Text style={styles.dropdownLabel}>Sequência do Drop (Separada por hifens)</Text>
+                    <Input
+                      placeholder="Ex: 15-12-10"
+                      keyboardType="default"
+                      value={modalSets[0]?.targetReps || ''}
+                      onChangeText={(val) => updateSetRepsInModal(0, val)}
+                    />
+                    <Text style={{ fontSize: 11, color: theme.colors.textMuted, marginTop: 2 }}>
+                      Digite o número de repetições de cada redução separado por hífen.
                     </Text>
                   </View>
                 ) : (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dropdownScroll}>
-                    <TouchableOpacity style={[styles.dropdownItem, selectedParentIds.length === 0 && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection('')} activeOpacity={0.8}>
-                      <Text style={[styles.dropdownItemText, selectedParentIds.length === 0 && styles.dropdownItemTextActive]}>Isolado / Não conjugar</Text>
-                    </TouchableOpacity>
+                  <>
+                    <View style={styles.modalSetsSectionHeader}>
+                      <Text style={styles.modalSetsSectionTitle}>Definir Metas das Séries</Text>
+                      <TouchableOpacity style={styles.addSetButton} onPress={addSetInModal} activeOpacity={0.7}>
+                        <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
+                        <Text style={styles.addSetButtonText}>Série</Text>
+                      </TouchableOpacity>
+                    </View>
 
-                    {exercises.map((ex) => {
-                      const isSelected = selectedParentIds.includes(ex.id);
-                      return (
-                        <TouchableOpacity key={ex.id} style={[styles.dropdownItem, isSelected && styles.dropdownItemActive]} onPress={() => handleToggleParentSelection(ex.id)} activeOpacity={0.8}>
-                          <View style={styles.checkboxLabelRow}>
-                            {isSelected && <Ionicons name="checkmark-sharp" size={14} color={theme.colors.primary} style={{ marginRight: 4 }} />}
-                            <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextActive]}>{ex.name}</Text>
+                    <View style={styles.modalColumnTitleRow}>
+                      <Text style={styles.modalColumnTitleNumber}>#</Text>
+                      <Text style={styles.modalColumnTitleLabel}>Meta de Repetições (Reps)</Text>
+                    </View>
+
+                    <View style={styles.modalSetsContainer}>
+                      {modalSets.map((set, index) => (
+                        <View key={index} style={styles.modalSetRow}>
+                          <Text style={styles.modalSetNumberLabel}>#{index + 1}</Text>
+                          <View style={styles.flex1}>
+                            <Input placeholder="Ex: 10" keyboardType="default" value={set.targetReps} onChangeText={(val) => updateSetRepsInModal(index, val)} />
                           </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                )}
-              </View>
-
-              {/* FORMULÁRIO DE SELEÇÃO DO DROP-SET */}
-              <View style={styles.dropSetToggleContainer}>
-                <Text style={styles.dropdownLabel}>Este exercício possui Drop-Set?</Text>
-                <Switch
-                  value={isDropSetInput}
-                  onValueChange={(val) => {
-                    setIsDropSetInput(val);
-                    setModalSets([{ targetReps: val ? '15-12-10' : '10' }]);
-                  }}
-                  trackColor={{ false: theme.colors.surfaceLight, true: theme.colors.primary }}
-                  thumbColor={isDropSetInput ? '#fff' : theme.colors.textMuted}
-                />
-              </View>
-
-              <View style={{ marginTop: theme.spacing.sm }}>
-                <Input label="Meta de Carga Inicial (kg)" placeholder="Ex: 20" keyboardType="numeric" value={metaPesoInput} onChangeText={setMetaPesoInput} />
-              </View>
-
-              {isDropSetInput ? (
-                <View style={{ marginTop: theme.spacing.md }}>
-                  <Text style={styles.dropdownLabel}>Sequência do Drop (Separada por hifens)</Text>
-                  <Input
-                    placeholder="Ex: 15-12-10"
-                    keyboardType="default"
-                    value={modalSets[0]?.targetReps || ''}
-                    onChangeText={(val) => updateSetRepsInModal(0, val)}
-                  />
-                  <Text style={{ fontSize: 11, color: theme.colors.textMuted, marginTop: 2 }}>
-                    Digite o número de repetições de cada redução separado por hífen.
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.modalSetsSectionHeader}>
-                    <Text style={styles.modalSetsSectionTitle}>Definir Metas das Séries</Text>
-                    <TouchableOpacity style={styles.addSetButton} onPress={addSetInModal} activeOpacity={0.7}>
-                      <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
-                      <Text style={styles.addSetButtonText}>Série</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.modalColumnTitleRow}>
-                    <Text style={styles.modalColumnTitleNumber}>#</Text>
-                    <Text style={styles.modalColumnTitleLabel}>Meta de Repetições (Reps)</Text>
-                  </View>
-
-                  <View style={styles.modalSetsContainer}>
-                    {modalSets.map((set, index) => (
-                      <View key={index} style={styles.modalSetRow}>
-                        <Text style={styles.modalSetNumberLabel}>#{index + 1}</Text>
-                        <View style={styles.flex1}>
-                          <Input placeholder="Ex: 10" keyboardType="default" value={set.targetReps} onChangeText={(val) => updateSetRepsInModal(index, val)} />
+                          {modalSets.length > 1 && (
+                            <TouchableOpacity style={styles.removeSetRowBtn} onPress={() => removeSetInModal(index)}>
+                              <Ionicons name="remove-circle-outline" size={22} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                          )}
                         </View>
-                        {modalSets.length > 1 && (
-                          <TouchableOpacity style={styles.removeSetRowBtn} onPress={() => removeSetInModal(index)}>
-                            <Ionicons name="remove-circle-outline" size={22} color={theme.colors.primary} />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                </>
-              )}
-            </ScrollView>
+                      ))}
+                    </View>
+                  </>
+                )}
+              </ScrollView>
 
-            <Button title="Adicionar à Ficha" isLoading={isSavingExercise} onPress={handleAddExerciseToFicha} style={styles.modalSubmitBtn} />
-          </View>
+              <Button title="Adicionar à Ficha" isLoading={isSavingExercise} onPress={handleAddExerciseToFicha} style={styles.modalSubmitBtn} />
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -800,7 +804,7 @@ const styles = StyleSheet.create({
   modalSkipBtn: { width: '100%' },
   modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: theme.spacing.lg },
   keyboardViewCentered: { width: '100%', justifyContent: 'center', alignItems: 'center', },
-  modalContentCenter: { backgroundColor: theme.colors.surface, width: '100%', borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg, maxHeight: '85%', borderWidth: 1, borderColor: theme.colors.surfaceLight, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, },
+  modalContentCenter: { backgroundColor: theme.colors.surface, width: '100%', borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg, maxHeight: '60%', borderWidth: 1, borderColor: theme.colors.surfaceLight, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 5, },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.md },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
   dropdownContainer: { marginTop: theme.spacing.sm, marginBottom: theme.spacing.xs },
@@ -824,7 +828,7 @@ const styles = StyleSheet.create({
   modalSetRow: { flexDirection: 'row', alignItems: 'center', width: '100%', marginBottom: theme.spacing.sm },
   modalSetNumberLabel: { fontSize: 13, fontWeight: 'bold', color: theme.colors.primary, width: 25, textAlign: 'center' },
   removeSetRowBtn: { paddingLeft: 12, justifyContent: 'center', alignItems: 'center', height: 40 },
-  modalScrollContainer: { paddingBottom: theme.spacing.xs },
-  modalSubmitBtn: { marginTop: theme.spacing.sm, width: '100%' },
+  modalScrollContainer: { paddingBottom: theme.spacing.md },
+  modalSubmitBtn: { marginTop: theme.spacing.md, width: '100%' },
   emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.spacing.xl }
 });
