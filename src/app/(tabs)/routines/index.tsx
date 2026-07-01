@@ -209,15 +209,20 @@ export default function RoutinesRoute() {
       />
 
       {/* Modal de Criação / Edição */}
-      <Modal visible={isModalVisible} animationType="slide" transparent={true} onRequestClose={() => setIsModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-            style={{ width: '100%' }}
-          >
+      <Modal 
+        visible={isModalVisible} 
+        animationType="fade"
+        transparent={true} 
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          style={styles.keyboardAvoidingView}
+        >
+          <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{editingRoutineId ? 'Editar Bloco de Treino' : 'Novo Bloco de Treino'}</Text>
+                <Text style={styles.modalTitle}>{editingRoutineId ? 'Editar Treino' : 'Novo Treino'}</Text>
                 <TouchableOpacity onPress={() => setIsModalVisible(false)}>
                   <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
                 </TouchableOpacity>
@@ -225,7 +230,7 @@ export default function RoutinesRoute() {
               
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <Input 
-                  label="Nome do Bloco" 
+                  label="Nome do Treino" 
                   placeholder="Ex: Treino A" 
                   value={nameInput} 
                   onChangeText={setNameInput} 
@@ -246,8 +251,8 @@ export default function RoutinesRoute() {
                 />
               </ScrollView>
             </View>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <CustomAlert
@@ -277,9 +282,10 @@ const styles = StyleSheet.create({
   badgeContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceLight, alignSelf: 'flex-start', paddingHorizontal: theme.spacing.sm, paddingVertical: 4, borderRadius: theme.borderRadius.sm, gap: 4 },
   badgeText: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500' },
   emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.spacing.xl },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: theme.colors.surface, borderTopLeftRadius: theme.borderRadius.lg, borderTopRightRadius: theme.borderRadius.lg, padding: theme.spacing.lg, paddingBottom: Platform.OS === 'ios' ? 40 : theme.spacing.xl, borderTopWidth: 1, borderTopColor: theme.colors.surfaceLight, maxHeight: '80%' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', padding: theme.spacing.lg },
+  modalContent: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.surfaceLight, width: '100%', maxWidth: 400, maxHeight: '70%', },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.lg },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
   modalButton: { marginTop: theme.spacing.sm },
+  keyboardAvoidingView: {flex: 1},
 });
