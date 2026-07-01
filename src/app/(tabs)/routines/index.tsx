@@ -228,28 +228,27 @@ export default function RoutinesRoute() {
                 </TouchableOpacity>
               </View>
               
-              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <Input 
-                  label="Nome do Treino" 
-                  placeholder="Ex: Treino A" 
-                  value={nameInput} 
-                  onChangeText={setNameInput} 
-                />
-                
-                <Input 
-                  label="Grupos Musculares / Descrição" 
-                  placeholder="Ex: Peito, Tríceps e Ombro" 
-                  value={descriptionInput} 
-                  onChangeText={setDescriptionInput} 
-                />
-                
-                <Button 
-                  title={editingRoutineId ? "Salvar Alterações" : "Criar Treino"} 
-                  isLoading={isLoading} 
-                  onPress={handleSaveRoutine} 
-                  style={styles.modalButton} 
-                />
-              </ScrollView>
+              {/* Componentes diretos no contêiner */}
+              <Input 
+                label="Nome do Treino" 
+                placeholder="Ex: Treino A" 
+                value={nameInput} 
+                onChangeText={setNameInput} 
+              />
+              
+              <Input 
+                label="Grupos Musculares / Descrição" 
+                placeholder="Ex: Peito, Tríceps e Ombro" 
+                value={descriptionInput} 
+                onChangeText={setDescriptionInput} 
+              />
+              
+              <Button 
+                title={editingRoutineId ? "Salvar Alterações" : "Criar Treino"} 
+                isLoading={isLoading} 
+                onPress={handleSaveRoutine} 
+                style={styles.modalButton} 
+              />
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -283,9 +282,9 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500' },
   emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: theme.spacing.xl },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.75)', justifyContent: 'center', alignItems: 'center', padding: theme.spacing.lg },
-  modalContent: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.surfaceLight, width: '100%', maxWidth: 400, maxHeight: '70%', },
+  modalContent: { backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.lg, padding: theme.spacing.lg, borderWidth: 1, borderColor: theme.colors.surfaceLight, width: '100%', maxWidth: 400, maxHeight: '85%', },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.lg },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.colors.text },
-  modalButton: { marginTop: theme.spacing.sm },
+  modalButton: { marginTop: theme.spacing.md, width: '100%'},
   keyboardAvoidingView: {flex: 1},
 });
