@@ -40,13 +40,16 @@ export default function LoginRoute() {
       router.replace('/(tabs)');
     } catch (error: any) {
       setIsLoading(false);
+      let errorMessage = 'Não foi possível conectar ao servidor.';
       
-      let errorMessage = 'Não foi possível conectar ao servidor. Verifique o seu IP local!';
-      
-      if (error.response && error.response.data && error.response.data.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.response && error.response.status === 401) {
-        errorMessage = 'E-mail ou senha inválidos. Tente novamente!';
+      if (error.response) {
+        const { status, data } = error.response;
+
+        if (status === 401) {
+          errorMessage = 'E-mail ou senha inválidos. Tente novamente!';
+        } else if (data?.error) {
+          errorMessage = data.error;
+        }
       }
 
       showAlert('Falha na Autenticação', errorMessage, 'error');
